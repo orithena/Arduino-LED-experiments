@@ -1,0 +1,12 @@
+.DS_Store
+bin/*/
+*build-*
+*~
+build-tmp/
+Makefile
+doc/
+debug.txt
+
+libraries/
+SparkleShield/
+ssa_test/
