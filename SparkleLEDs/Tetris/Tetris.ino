@@ -19,8 +19,9 @@
 #define PRELLBOCKZEIT       168            // buttons cannot be counted as pressed twice in this time frame  
 
 #define SLOW_MOVE_TIME  1500
-#define SLOW_MOVE_STEP    75
+#define SLOW_MOVE_STEP   150
 #define FAST_MOVE_TIME    75
+#define LEVEL_FORMULA lines / 12
 
 // Params for width and height of the LED Matrix
 const uint8_t kMatrixWidth = 10;
@@ -77,396 +78,96 @@ byte board[ kBoardWidth ][ kBoardHeight ];
 const char stones[7][4][4][2] = { 
   { // 0 = square
     { 
-      _BA, _BB, _CA, _CB             }
+      _BA, _BB, _CA, _CB                     }
     ,
     { 
-      _BA, _BB, _CA, _CB             }
+      _BA, _BB, _CA, _CB                     }
     ,
     { 
-      _BA, _BB, _CA, _CB             }
+      _BA, _BB, _CA, _CB                     }
     ,
     { 
-      _BA, _BB, _CA, _CB             }
+      _BA, _BB, _CA, _CB                     }
   }
   , { // 1 = el block
     { 
-      _AA, _AB, _BB, _CB             }
+      _AA, _AB, _BB, _CB                     }
     ,
     { 
-      _AC, _BA, _BB, _BC             }
+      _AC, _BA, _BB, _BC                     }
     ,
     { 
-      _AA, _BA, _CA, _CB             }
+      _AA, _BA, _CA, _CB                     }
     ,
     { 
-      _BA, _BB, _BC, _CA             }
+      _BA, _BB, _BC, _CA                     }
   }
   , { // 2 = reverse squiggely
     { 
-      _AB, _BB, _BA, _CA             }
+      _AB, _BB, _BA, _CA                     }
     ,
     { 
-      _AA, _AB, _BB, _BC             }
+      _AA, _AB, _BB, _BC                     }
     ,
     { 
-      _AB, _BB, _BA, _CA             }
+      _AB, _BB, _BA, _CA                     }
     ,
     { 
-      _AA, _AB, _BB, _BC             }
+      _AA, _AB, _BB, _BC                     }
   }
   , { // 3 = reverse el block
     { 
-      _AA, _AB, _BA, _CA             }
+      _AA, _AB, _BA, _CA                     }
     ,
     { 
-      _BA, _BB, _BC, _CC             }
+      _BA, _BB, _BC, _CC                     }
     ,
     { 
-      _AB, _BB, _CB, _CA             }
+      _AB, _BB, _CB, _CA                     }
     ,
     { 
-      _AA, _BA, _BB, _BC             }
+      _AA, _BA, _BB, _BC                     }
   }
   , { // 4 = T block
     { 
-      _AB, _BB, _BA, _CB             }
+      _AB, _BB, _BA, _CB                     }
     ,
     { 
-      _AB, _BB, _BA, _BC             }
+      _AB, _BB, _BA, _BC                     }
     ,
     { 
-      _AA, _BB, _BA, _CA             }
+      _AA, _BB, _BA, _CA                     }
     ,
     { 
-      _BA, _BB, _BC, _CB             }
+      _BA, _BB, _BC, _CB                     }
   }
   , { // 5 = squiggely
     { 
-      _AA, _BA, _BB, _CB             }
+      _AA, _BA, _BB, _CB                     }
     ,
     { 
-      _BC, _BB, _CB, _CA             }
+      _BC, _BB, _CB, _CA                     }
     ,
     { 
-      _AA, _BA, _BB, _CB             }
+      _AA, _BA, _BB, _CB                     }
     ,
     { 
-      _BC, _BB, _CB, _CA             }
+      _BC, _BB, _CB, _CA                     }
   }
   , { // 6 = LINE PIECE!!!
     { 
-      _BA, _BB, _BC, _BD             }
+      _BA, _BB, _BC, _BD                     }
     ,
     { 
-      _AA, _BA, _CA, _DA             }
+      _AA, _BA, _CA, _DA                     }
     ,
     { 
-      _BA, _BB, _BC, _BD             }
+      _BA, _BB, _BC, _BD                     }
     ,
     { 
-      _AA, _BA, _CA, _DA             }
+      _AA, _BA, _CA, _DA                     }
   }
 };
-
-// internal state variables
-volatile byte stone = 6;
-volatile byte rotation = 0;
-int analog_left, analog_left_raw_old = 0;
-int analog_right, analog_right_raw_old = 0;
-int stone_x = kBoardWidth/2;
-int stone_y = kBoardHeight;
-int points = 0;
-volatile uint32_t oldmillis = 0;
-uint32_t last_stone_move = 0;
-
-uint16_t XYsafe( int x, int y)
-{
-  if ( x >= kMatrixWidth) return -1;
-  if ( y >= kMatrixHeight) return -1;
-  if ( x < 0) return -1;
-  if ( y < 0) return -1;
-  return XY(x, y);
-}
-
-inline boolean between(int l, int x, int u) {
-  return (unsigned)(x - l) <= (u - l);
-}
-
-boolean possible(int pos_x, int pos_y, int rotation) {
-  for( int p = 0; p < 4; p++ ) {
-    if( !between(0, pos_x + stones[stone][rotation][p][0], kBoardWidth-1 ) ) return false;
-    if( pos_y + stones[stone][rotation][p][1] < 0 ) return false;
-    if( between(0, pos_x + stones[stone][rotation][p][0], kBoardWidth-1  ) &&
-      between(0, pos_y + stones[stone][rotation][p][1], kBoardHeight-1 ) ) {
-      if( board[ pos_x + stones[stone][rotation][p][0] ][ pos_y + stones[stone][rotation][p][1] ] > 0 ) {
-        return false;
-      }
-    }
-  }
-  return true;
-}
-
-void blink_line(int y, int board_offset, int repeat) {
-  int my = y-board_offset;
-  if( my < kMatrixHeight ) {
-    int when = repeat/4;
-    for( int n = 0; n < repeat; n++ ) {
-      if( n >= when ) {
-        Clear();
-      }
-      for( int x = 0; x < kMatrixWidth; x++ ) {
-        if( my < 0 ) {
-          leds[ XYsafe( x,0 ) ] = CHSV( 0, 0, ((n*kMatrixWidth)+(x*36)+(y*36L*(repeat%8)))%128 );
-        } else {
-          leds[ XYsafe( x,my ) ] = CHSV( ((n*kMatrixWidth)+(x*36)+(y*36L*(repeat%8)))%256, 255, 128 );
-        }
-      }
-      if( n >= when ) {
-        DrawNumberOneFrame( points, (n - when)/2 );
-      }
-      FastLED.show();
-      delay(33);
-    }
-  }
-}
-
-void blank_line(int y, int board_offset, int pause) {
-  int my = y-board_offset;
-  if( my >= 0 && my < kMatrixHeight ) {
-    for( int x = 0; x < kMatrixWidth; x++ ) {
-      leds[ XYsafe( x, my) ] = CHSV( 0,0,0 );
-    }
-    FastLED.show();
-    delay(pause);
-  }
-}
-
-void destroy_line(int y) {
-  for( int dy = y; dy < kBoardHeight-1; dy++ ) {
-    for( int dx = 0; dx < kBoardWidth; dx++ ) {
-      board[dx][dy] = board[dx][dy+1];
-    }
-  }
-  for( int dx = 0; dx < kBoardWidth; dx++ ) {
-    board[dx][kBoardHeight-1] = 0;
-  }
-}
-
-void readController() {
-  int analog_right_raw = analogRead(IN_ANALOGRIGHT_PIN);
-  int analog_left_raw = analogRead(IN_ANALOGLEFT_PIN);
-  if( abs(analog_left_raw_old - analog_left_raw) > ANALOG_JITTER ) {
-    if( analog_left_raw > IN_ANALOGLEFT_UPPER_BOUND ) analog_left_raw = IN_ANALOGLEFT_UPPER_BOUND;
-    if( analog_left_raw < IN_ANALOGLEFT_LOWER_BOUND ) analog_left_raw = IN_ANALOGLEFT_LOWER_BOUND;
-    analog_left = ((analog_left_raw - IN_ANALOGLEFT_LOWER_BOUND) * 255L) / (IN_ANALOGLEFT_UPPER_BOUND - IN_ANALOGLEFT_LOWER_BOUND);
-    analog_left_raw_old = analog_left_raw;
-#ifdef DEBUG
-    Serial.print("left ");
-    Serial.print(analog_left);
-    Serial.print(" ");
-    Serial.println(analog_left_raw_old);
-#endif
-  }
-  if( abs(analog_right_raw_old - analog_right_raw) > ANALOG_JITTER ) {
-    if( analog_right_raw > IN_ANALOGRIGHT_UPPER_BOUND ) analog_right_raw = IN_ANALOGRIGHT_UPPER_BOUND;
-    if( analog_right_raw < IN_ANALOGRIGHT_LOWER_BOUND ) analog_right_raw = IN_ANALOGRIGHT_LOWER_BOUND;
-    analog_right = ((analog_right_raw - IN_ANALOGRIGHT_LOWER_BOUND) * 255L) / (IN_ANALOGRIGHT_UPPER_BOUND - IN_ANALOGRIGHT_LOWER_BOUND);
-    analog_right_raw_old = analog_right_raw;
-#ifdef DEBUG
-    Serial.print("right ");
-    Serial.print(analog_right);
-    Serial.print(" ");
-    Serial.println(analog_right_raw_old);
-#endif
-  }
-}
-
-void loop()
-{
-  uint32_t ms = millis();
-  readController();
-
-  int board_offset = ((analog_left * (kBoardHeight - kMatrixHeight)) / 240);
-
-  int new_x = kBoardWidth - 1 - ((analog_right * kBoardWidth) / 256);
-  for( int x = stone_x; (stone_x < new_x ? x <= new_x : x >= new_x); x = (stone_x < new_x ? x+1 : x-1) ) {
-    if( possible(x, stone_y, rotation) ) {
-      stone_x = x;
-    } 
-    else {
-      break;
-    }
-  }
-
-  boolean button_left = (digitalRead(IN_BUTTONLEFT_PIN) == HIGH);
-  if( ms - last_stone_move > (button_left ? FAST_MOVE_TIME : SLOW_MOVE_TIME ) ) {
-#ifdef DEBUG
-    Serial.print("board_offset: ");
-    Serial.println(board_offset);
-    Serial.print("--> stone: ");
-    Serial.print(stone);
-    Serial.print(" stone_y: ");
-    Serial.println(stone_y);
-#endif
-    int new_y = stone_y - 1;
-    if( possible(stone_x, new_y, rotation) ) {
-      stone_y = new_y;
-    } 
-    else { 
-      // stone cannot go down, fix it to board!
-      points++;
-      for( int p = 0; p < 4; p++ ) {
-        if( between(0, stone_x + stones[stone][rotation][p][0], kBoardWidth-1) &&
-          between(0, stone_y + stones[stone][rotation][p][1], kBoardHeight-1) ) {
-          board[ stone_x + stones[stone][rotation][p][0] ][ stone_y + stones[stone][rotation][p][1] ] = stone + 1;
-        }
-      }
-
-      // check for full lines
-      int lines = 0;
-      for( int y = kBoardHeight-1; y >= 0; y-- ) {
-        boolean line_full = true;
-        for( int x = 0; x < kBoardWidth; x++ ) {
-          if( board[x][y] == 0 ) line_full = false;
-        }
-        if( line_full ) {
-          lines++;
-          points += 2 << lines;
-          blink_line(y, board_offset, 80);
-          blank_line(y, board_offset, 100);
-          destroy_line(y);
-          
-          // after that long animation, re-read the controller state
-          readController();
-        }
-      }
-
-      // new stone
-      stone = random(7);
-      rotation = 0;
-      stone_x = kBoardWidth - 1 - ((analog_right * kBoardWidth) / 256);
-      for( int p = 0; p < 4; p++ ) {
-        while( stone_x + stones[stone][rotation][p][0] < 0 ) {
-          stone_x++;
-        }
-        while( stone_x + stones[stone][rotation][p][0] >= kBoardWidth ) {
-          stone_x--;
-        }
-      }
-      stone_y = kBoardHeight-1;
-
-      // check for game over!
-      if( !possible(stone_x, stone_y, rotation) ) {
-        for( int y = kBoardHeight - 1; y >= 0; y-- ) {
-          blink_line(y, 0, 80);
-          blank_line(y, 0, 0);
-          destroy_line(y);
-        }
-        points = 0;
-      }
-    }
-    last_stone_move = ms;
-#ifdef DEBUG
-    Serial.print("<-- stone: ");
-    Serial.print(stone);
-    Serial.print(" stone_y: ");
-    Serial.println(stone_y);
-#endif
-  }
-  display(board_offset);
-  /*
-  uint32_t xms = ms / 8;
-   int32_t yHueDelta32 = ((int32_t)cos16( xms * (27 / 1) ) * (350 / kMatrixWidth));
-   int32_t xHueDelta32 = ((int32_t)cos16( xms * (39 / 1) ) * (310 / kMatrixHeight));
-   DrawRainbowOneFrame( xms / 65536, yHueDelta32 / 32768, xHueDelta32 / 32768);
-   */
-  FastLED.show();
-  delay(1);
-}
-
-int _mod(int x, int m) {
-  int r = x%m;
-  return r<0 ? r+m : r;
-}
-
-CHSV palette(byte colorindex) {
-  return CHSV((((colorindex-1) * 36) + 36) % 256, 255, (colorindex > 0) ? 255 : 0);
-}
-
-void display(int board_offset) {
-  boolean stone_displayed = false;
-  for( int x = 0; x < kMatrixWidth; x++ ) {
-    for( int y = 0; y < kMatrixHeight; y++ ) {
-      byte to = board[x][y + board_offset];
-      for( byte p = 0; p < 4; p++ ) {
-        if( stone_x + stones[stone][rotation][p][0] == x && stone_y + stones[stone][rotation][p][1] == (y + board_offset)) {
-          to = stone+1;
-          stone_displayed = true;
-        } 
-      }
-      if( to > 0 ) {
-        leds[ XYsafe(x,y) ] = palette(to);
-      } 
-      else {
-        leds[ XYsafe(x,y) ] = CHSV(170-(((y+board_offset)*170)/kBoardHeight), 255, 48 + (((y+board_offset)%5)*8) );
-      }
-    }
-  }
-  if( !stone_displayed && (millis() % 300) < 96 ) {
-    int base_line = (stone_y > board_offset) ? kMatrixHeight - 2 : 0;
-    for( int x = 0; x < kMatrixWidth; x++ ) {
-      for( int y = 0; y < 4; y++ ) {
-        for( byte p = 0; p < 4; p++ ) {
-          if( stone_x + stones[stone][rotation][p][0] == x && stones[stone][rotation][p][1] == y) {
-            leds[ XYsafe(x,base_line + y) ] = CHSV(0, 0, 96);
-          }
-        }
-      }
-    }
-  }
-}
-
-void Clear() {
-  for ( byte y = 0; y < kMatrixHeight; y++) {
-    for ( byte x = 0; x < kMatrixWidth; x++) {
-      leds[ XYsafe(x, y)]  = CHSV((16*y)+(47*x), 255, 42);
-    }
-  }
-}
-
-void button_left() {
-  uint32_t ms = millis();
-  // we need to filter out button chatter, so we only count the first impulse of a tight bunch.
-  // define PRELLBOCKZEIT to match the chattering characteristics of your buttons. 
-  // also, if the timer just moved the piece in that same timeframe, we don't count the button.
-  if( ms > oldmillis+PRELLBOCKZEIT && ms - last_stone_move > PRELLBOCKZEIT) {
-    last_stone_move = ms - SLOW_MOVE_TIME;
-    oldmillis = ms;
-  }
-}
-
-void button_right() {
-  uint32_t ms = millis();
-  if( ms > oldmillis+PRELLBOCKZEIT) {
-    // lets try rotating that stone.
-    if( possible( stone_x, stone_y, (rotation + 1) % 4 ) ) {
-      rotation = (rotation + 1) % 4;
-    } // we might be at the right wall. try one position to the left.
-    else if( possible( stone_x-1, stone_y, (rotation + 1) % 4 ) ) {
-      stone_x -= 1;
-      rotation = (rotation + 1) % 4;
-    } // nope? might be the left wall. try one position to the right.
-    else if( possible( stone_x+1, stone_y, (rotation + 1) % 4 ) ) {
-      stone_x += 1;
-      rotation = (rotation + 1) % 4;
-    } // okay, we've still got the long stick that might want to move two positions to the left.
-    else if( possible( stone_x-2, stone_y, (rotation + 1) % 4 ) ) {
-      stone_x -= 2;
-      rotation = (rotation + 1) % 4;
-    } // I give up and leave it at that.
-    oldmillis = ms;
-  }
-}
 
 static unsigned char Font5x7[] = {
   0x00, 0x00, 0x00, 0x00, 0x00,// (space)
@@ -567,6 +268,335 @@ static unsigned char Font5x7[] = {
   0x08, 0x1C, 0x2A, 0x08, 0x08 // <-
 };
 
+// internal state variables
+volatile byte stone = 6;
+volatile byte rotation = 0;
+int analog_left, analog_left_raw_old = 0;
+int analog_right, analog_right_raw_old = 0;
+int stone_x = kBoardWidth/2;
+int stone_y = kBoardHeight;
+int lines = 0;
+int points = 0;
+int level = 0;
+volatile uint32_t oldmillis = 0;
+uint32_t last_stone_move = 0;
+
+uint16_t XYsafe( int x, int y)
+{
+  if ( x >= kMatrixWidth) return -1;
+  if ( y >= kMatrixHeight) return -1;
+  if ( x < 0) return -1;
+  if ( y < 0) return -1;
+  return XY(x, y);
+}
+
+inline boolean between(int l, int x, int u) {
+  return (unsigned)(x - l) <= (u - l);
+}
+
+boolean possible(int pos_x, int pos_y, int rotation) {
+  for( int p = 0; p < 4; p++ ) {
+    if( !between(0, pos_x + stones[stone][rotation][p][0], kBoardWidth-1 ) ) return false;
+    if( pos_y + stones[stone][rotation][p][1] < 0 ) return false;
+    if( between(0, pos_x + stones[stone][rotation][p][0], kBoardWidth-1  ) &&
+      between(0, pos_y + stones[stone][rotation][p][1], kBoardHeight-1 ) ) {
+      if( board[ pos_x + stones[stone][rotation][p][0] ][ pos_y + stones[stone][rotation][p][1] ] > 0 ) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+void blink_line(int y, int board_offset, int repeat) {
+  int my = y-board_offset;
+  if( my < kMatrixHeight ) {
+    int when = repeat/4;
+    for( int n = 0; n < repeat; n++ ) {
+      if( n >= when ) {
+        Clear();
+      }
+      for( int x = 0; x < kMatrixWidth; x++ ) {
+        if( my < 0 ) {
+          leds[ XYsafe( x,0 ) ] = CHSV( 0, 0, ((n*kMatrixWidth)+(x*36)+(y*36L*(repeat%8)))%128 );
+        } 
+        else {
+          leds[ XYsafe( x,my ) ] = CHSV( ((n*kMatrixWidth)+(x*36)+(y*36L*(repeat%8)))%256, 255, 128 );
+        }
+      }
+      if( n >= when ) {
+        DrawNumberOneFrame( points, (n - when)/2 );
+      }
+      FastLED.show();
+      delay(33);
+    }
+  }
+}
+
+void blank_line(int y, int board_offset, int pause) {
+  int my = y-board_offset;
+  if( my >= 0 && my < kMatrixHeight ) {
+    for( int x = 0; x < kMatrixWidth; x++ ) {
+      leds[ XYsafe( x, my) ] = CHSV( 0,0,0 );
+    }
+    FastLED.show();
+    delay(pause);
+  }
+}
+
+void destroy_line(int y) {
+  for( int dy = y; dy < kBoardHeight-1; dy++ ) {
+    for( int dx = 0; dx < kBoardWidth; dx++ ) {
+      board[dx][dy] = board[dx][dy+1];
+    }
+  }
+  for( int dx = 0; dx < kBoardWidth; dx++ ) {
+    board[dx][kBoardHeight-1] = 0;
+  }
+}
+
+void readController() {
+  int analog_right_raw = analogRead(IN_ANALOGRIGHT_PIN);
+  int analog_left_raw = analogRead(IN_ANALOGLEFT_PIN);
+  if( abs(analog_left_raw_old - analog_left_raw) > ANALOG_JITTER ) {
+    if( analog_left_raw > IN_ANALOGLEFT_UPPER_BOUND ) analog_left_raw = IN_ANALOGLEFT_UPPER_BOUND;
+    if( analog_left_raw < IN_ANALOGLEFT_LOWER_BOUND ) analog_left_raw = IN_ANALOGLEFT_LOWER_BOUND;
+    analog_left = ((analog_left_raw - IN_ANALOGLEFT_LOWER_BOUND) * 255L) / (IN_ANALOGLEFT_UPPER_BOUND - IN_ANALOGLEFT_LOWER_BOUND);
+    analog_left_raw_old = analog_left_raw;
+#ifdef DEBUG
+    Serial.print("left ");
+    Serial.print(analog_left);
+    Serial.print(" ");
+    Serial.println(analog_left_raw_old);
+#endif
+  }
+  if( abs(analog_right_raw_old - analog_right_raw) > ANALOG_JITTER ) {
+    if( analog_right_raw > IN_ANALOGRIGHT_UPPER_BOUND ) analog_right_raw = IN_ANALOGRIGHT_UPPER_BOUND;
+    if( analog_right_raw < IN_ANALOGRIGHT_LOWER_BOUND ) analog_right_raw = IN_ANALOGRIGHT_LOWER_BOUND;
+    analog_right = ((analog_right_raw - IN_ANALOGRIGHT_LOWER_BOUND) * 255L) / (IN_ANALOGRIGHT_UPPER_BOUND - IN_ANALOGRIGHT_LOWER_BOUND);
+    analog_right_raw_old = analog_right_raw;
+#ifdef DEBUG
+    Serial.print("right ");
+    Serial.print(analog_right);
+    Serial.print(" ");
+    Serial.println(analog_right_raw_old);
+#endif
+  }
+}
+
+void loop()
+{
+  uint32_t ms = millis();
+  readController();
+
+  int board_offset = ((analog_left * (kBoardHeight - kMatrixHeight)) / 240);
+
+  int new_x = kBoardWidth - 1 - ((analog_right * kBoardWidth) / 256);
+  for( int x = stone_x; (stone_x < new_x ? x <= new_x : x >= new_x); x = (stone_x < new_x ? x+1 : x-1) ) {
+    if( possible(x, stone_y, rotation) ) {
+      stone_x = x;
+    } 
+    else {
+      break;
+    }
+  }
+
+  boolean button_left = (digitalRead(IN_BUTTONLEFT_PIN) == HIGH);
+  if( ms - last_stone_move > (button_left ? FAST_MOVE_TIME : (SLOW_MOVE_TIME - (level*SLOW_MOVE_STEP) ) ) ) {
+#ifdef DEBUG
+    Serial.print("board_offset: ");
+    Serial.println(board_offset);
+    Serial.print("--> stone: ");
+    Serial.print(stone);
+    Serial.print(" stone_y: ");
+    Serial.println(stone_y);
+#endif
+    int new_y = stone_y - 1;
+    if( possible(stone_x, new_y, rotation) ) {
+      stone_y = new_y;
+    } 
+    else { 
+      // stone cannot go down, fix it to board!
+      points++;
+      for( int p = 0; p < 4; p++ ) {
+        if( between(0, stone_x + stones[stone][rotation][p][0], kBoardWidth-1) &&
+          between(0, stone_y + stones[stone][rotation][p][1], kBoardHeight-1) ) {
+          board[ stone_x + stones[stone][rotation][p][0] ][ stone_y + stones[stone][rotation][p][1] ] = stone + 1;
+        }
+      }
+
+      // check for full lines
+      int just_now_completed_lines = 0;
+      for( int y = kBoardHeight-1; y >= 0; y-- ) {
+        boolean line_full = true;
+        for( int x = 0; x < kBoardWidth; x++ ) {
+          if( board[x][y] == 0 ) line_full = false;
+        }
+        if( line_full ) {
+          lines++;
+          just_now_completed_lines++;
+          level = LEVEL_FORMULA;
+          points += 2 << just_now_completed_lines;
+          blink_line(y, board_offset, 80);
+          blank_line(y, board_offset, 100);
+          destroy_line(y);
+
+          // after that long animation, re-read the controller state
+          readController();
+        }
+      }
+
+      // new stone
+      stone = random(7);
+      rotation = 0;
+      stone_x = kBoardWidth - 1 - ((analog_right * kBoardWidth) / 256);
+      for( int p = 0; p < 4; p++ ) {
+        while( stone_x + stones[stone][rotation][p][0] < 0 ) {
+          stone_x++;
+        }
+        while( stone_x + stones[stone][rotation][p][0] >= kBoardWidth ) {
+          stone_x--;
+        }
+      }
+      stone_y = kBoardHeight-1;
+
+      // check for game over!
+      if( !possible(stone_x, stone_y, rotation) ) {
+        for( int y = kBoardHeight - 1; y >= 0; y-- ) {
+          if( !(y < board_offset + kMatrixHeight - 3 && (digitalRead(IN_BUTTONLEFT_PIN) == HIGH)) ) {
+            blink_line(y, 0, 80);
+          }
+          blank_line(y, 0, 0);
+          destroy_line(y);
+        }
+        points = 0;
+        level = 0;
+        lines = 0;
+      }
+    }
+    last_stone_move = ms;
+#ifdef DEBUG
+    Serial.print("<-- stone: ");
+    Serial.print(stone);
+    Serial.print(" stone_y: ");
+    Serial.println(stone_y);
+#endif
+  }
+  display(board_offset);
+  /*
+  uint32_t xms = ms / 8;
+   int32_t yHueDelta32 = ((int32_t)cos16( xms * (27 / 1) ) * (350 / kMatrixWidth));
+   int32_t xHueDelta32 = ((int32_t)cos16( xms * (39 / 1) ) * (310 / kMatrixHeight));
+   DrawRainbowOneFrame( xms / 65536, yHueDelta32 / 32768, xHueDelta32 / 32768);
+   */
+  FastLED.show();
+#ifdef DEBUG
+  delay(20);
+#else
+  delay(1);
+#endif
+}
+
+int _mod(int x, int m) {
+  int r = x%m;
+  return r<0 ? r+m : r;
+}
+
+CHSV palette(byte colorindex) {
+  return CHSV((((colorindex-1) * 36) + 36) % 256, 255, (colorindex > 0) ? 255 : 0);
+}
+
+void display(int board_offset) {
+  boolean stone_displayed = false;
+  for( int x = 0; x < kMatrixWidth; x++ ) {
+    for( int y = 0; y < kMatrixHeight; y++ ) {
+      byte to = board[x][y + board_offset];
+      for( byte p = 0; p < 4; p++ ) {
+        if( stone_x + stones[stone][rotation][p][0] == x && stone_y + stones[stone][rotation][p][1] == (y + board_offset)) {
+          to = stone+1;
+          stone_displayed = true;
+        } 
+      }
+#ifdef DEBUG
+      Serial.print(48+level);
+      Serial.print(" ");
+      Serial.print(x);
+      Serial.print(" ");
+      Serial.print(y);
+      Serial.print(" ");
+      Serial.print(Char(Font5x7, 48+level)[x], HEX);
+      Serial.print(" ");
+      Serial.print(Char(Font5x7, 48+level)[x], BIN);
+      Serial.print(" ");
+      Serial.println((Char(Font5x7, 48+level)[x] >> (6 - y) & 1), HEX);
+#endif
+      if( to > 0 ) {
+        leds[ XYsafe(x,y) ] = palette(to);
+      } 
+      else if( x >= 3 && x < 8 && (Char(Font5x7, 48+level)[x-3] >> (6 - y) & 1) * 255 ) {
+        leds[ XYsafe(x,y) ] = CHSV(0,0,0);
+      }
+      else {
+        leds[ XYsafe(x,y) ] = CHSV(170-(((y+board_offset)*170)/kBoardHeight), 255, 48 + (((y+board_offset)%5)*8) );
+      }
+    }
+  }
+  if( !stone_displayed && (millis() % 300) < 96 ) {
+    int base_line = (stone_y > board_offset) ? kMatrixHeight - 2 : 0;
+    for( int x = 0; x < kMatrixWidth; x++ ) {
+      for( int y = 0; y < 4; y++ ) {
+        for( byte p = 0; p < 4; p++ ) {
+          if( stone_x + stones[stone][rotation][p][0] == x && stones[stone][rotation][p][1] == y) {
+            leds[ XYsafe(x,base_line + y) ] = CHSV(0, 0, 96);
+          }
+        }
+      }
+    }
+  }
+}
+
+void Clear() {
+  for ( byte y = 0; y < kMatrixHeight; y++) {
+    for ( byte x = 0; x < kMatrixWidth; x++) {
+      leds[ XYsafe(x, y)]  = CHSV((16*y)+(47*x), 255, 42);
+    }
+  }
+}
+
+void button_left() {
+  uint32_t ms = millis();
+  // we need to filter out button chatter, so we only count the first impulse of a tight bunch.
+  // define PRELLBOCKZEIT to match the chattering characteristics of your buttons. 
+  // also, if the timer just moved the piece in that same timeframe, we don't count the button.
+  if( ms > oldmillis+PRELLBOCKZEIT && ms - last_stone_move > PRELLBOCKZEIT) {
+    last_stone_move = ms - SLOW_MOVE_TIME;
+    oldmillis = ms;
+  }
+}
+
+void button_right() {
+  uint32_t ms = millis();
+  if( ms > oldmillis+PRELLBOCKZEIT) {
+    // lets try rotating that stone.
+    if( possible( stone_x, stone_y, (rotation + 1) % 4 ) ) {
+      rotation = (rotation + 1) % 4;
+    } // we might be at the right wall. try one position to the left.
+    else if( possible( stone_x-1, stone_y, (rotation + 1) % 4 ) ) {
+      stone_x -= 1;
+      rotation = (rotation + 1) % 4;
+    } // nope? might be the left wall. try one position to the right.
+    else if( possible( stone_x+1, stone_y, (rotation + 1) % 4 ) ) {
+      stone_x += 1;
+      rotation = (rotation + 1) % 4;
+    } // okay, we've still got the long stick that might want to move two positions to the left.
+    else if( possible( stone_x-2, stone_y, (rotation + 1) % 4 ) ) {
+      stone_x -= 2;
+      rotation = (rotation + 1) % 4;
+    } // I give up and leave it at that.
+    oldmillis = ms;
+  }
+}
+
 unsigned char* Char(unsigned char* font, char c) {
   return &font[(c - 32) * 5];
 }
@@ -581,7 +611,7 @@ void DrawTextOneFrame(char *text, int xOffset) {
   DrawText(text, 10 - xOffset, 0);
 }
 
-void DrawNumberOneFrame(unsigned int number, int xOffset) {
+void DrawNumberOneFrame(uint32_t number, int xOffset) {
   char buffer[7];
   itoa(number,buffer,10);
   DrawTextOneFrame(buffer, xOffset); 
@@ -625,7 +655,12 @@ void setup() {
   Serial.begin(9600);
 #endif
   randomSeed(analogRead(A2)+analogRead(IN_ANALOGRIGHT_PIN));
+#ifdef DEBUG
+  delay(3000);
+#endif
 }
+
+
 
 
 
