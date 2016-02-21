@@ -77,94 +77,94 @@ byte board[ kBoardWidth ][ kBoardHeight ];
 const char stones[7][4][4][2] = { 
   { // 0 = square
     { 
-      _BA, _BB, _CA, _CB     }
+      _BA, _BB, _CA, _CB             }
     ,
     { 
-      _BA, _BB, _CA, _CB     }
+      _BA, _BB, _CA, _CB             }
     ,
     { 
-      _BA, _BB, _CA, _CB     }
+      _BA, _BB, _CA, _CB             }
     ,
     { 
-      _BA, _BB, _CA, _CB     }
+      _BA, _BB, _CA, _CB             }
   }
   , { // 1 = el block
     { 
-      _AA, _AB, _BB, _CB     }
+      _AA, _AB, _BB, _CB             }
     ,
     { 
-      _AC, _BA, _BB, _BC     }
+      _AC, _BA, _BB, _BC             }
     ,
     { 
-      _AA, _BA, _CA, _CB     }
+      _AA, _BA, _CA, _CB             }
     ,
     { 
-      _BA, _BB, _BC, _CA     }
+      _BA, _BB, _BC, _CA             }
   }
   , { // 2 = reverse squiggely
     { 
-      _AB, _BB, _BA, _CA     }
+      _AB, _BB, _BA, _CA             }
     ,
     { 
-      _AA, _AB, _BB, _BC     }
+      _AA, _AB, _BB, _BC             }
     ,
     { 
-      _AB, _BB, _BA, _CA     }
+      _AB, _BB, _BA, _CA             }
     ,
     { 
-      _AA, _AB, _BB, _BC     }
+      _AA, _AB, _BB, _BC             }
   }
   , { // 3 = reverse el block
     { 
-      _AA, _AB, _BA, _CA     }
+      _AA, _AB, _BA, _CA             }
     ,
     { 
-      _BA, _BB, _BC, _CC     }
+      _BA, _BB, _BC, _CC             }
     ,
     { 
-      _AB, _BB, _CB, _CA     }
+      _AB, _BB, _CB, _CA             }
     ,
     { 
-      _AA, _BA, _BB, _BC     }
+      _AA, _BA, _BB, _BC             }
   }
   , { // 4 = T block
     { 
-      _AB, _BB, _BA, _CB     }
+      _AB, _BB, _BA, _CB             }
     ,
     { 
-      _AB, _BB, _BA, _BC     }
+      _AB, _BB, _BA, _BC             }
     ,
     { 
-      _AA, _BB, _BA, _CA     }
+      _AA, _BB, _BA, _CA             }
     ,
     { 
-      _BA, _BB, _BC, _CB     }
+      _BA, _BB, _BC, _CB             }
   }
   , { // 5 = squiggely
     { 
-      _AA, _BA, _BB, _CB     }
+      _AA, _BA, _BB, _CB             }
     ,
     { 
-      _BC, _BB, _CB, _CA     }
+      _BC, _BB, _CB, _CA             }
     ,
     { 
-      _AA, _BA, _BB, _CB     }
+      _AA, _BA, _BB, _CB             }
     ,
     { 
-      _BC, _BB, _CB, _CA     }
+      _BC, _BB, _CB, _CA             }
   }
   , { // 6 = LINE PIECE!!!
     { 
-      _BA, _BB, _BC, _BD     }
+      _BA, _BB, _BC, _BD             }
     ,
     { 
-      _AA, _BA, _CA, _DA     }
+      _AA, _BA, _CA, _DA             }
     ,
     { 
-      _BA, _BB, _BC, _BD     }
+      _BA, _BB, _BC, _BD             }
     ,
     { 
-      _AA, _BA, _CA, _DA     }
+      _AA, _BA, _CA, _DA             }
   }
 };
 
@@ -205,22 +205,36 @@ boolean possible(int pos_x, int pos_y, int rotation) {
   return true;
 }
 
-void blink_line(int y, int repeat) {
-  for( int n = 0; n < repeat; n++ ) {
-    for( int x = 0; x < kMatrixWidth; x++ ) {
-      leds[ XYsafe( x,y ) ] = CHSV( ((n*kMatrixWidth)+(x*36)+(y*36L*(repeat%8)))%256, 255, 128 );
+void blink_line(int y, int board_offset, int repeat) {
+  int my = y-board_offset;
+  if( my >= 0 && my < kMatrixHeight ) {
+    for( int n = 0; n < repeat; n++ ) {
+      for( int x = 0; x < kMatrixWidth; x++ ) {
+        leds[ XYsafe( x,my ) ] = CHSV( ((n*kMatrixWidth)+(x*36)+(y*36L*(repeat%8)))%256, 255, 128 );
+      }
+      FastLED.show();
+      delay(33);
     }
-    FastLED.show();
-    delay(33);
+  } else if( my < 0 ) {
+    for( int n = 0; n < repeat; n++ ) {
+      for( int x = 0; x < kMatrixWidth; x++ ) {
+        leds[ XYsafe( x,0 ) ] = CHSV( 0, 0, ((n*kMatrixWidth)+(x*36)+(y*36L*(repeat%8)))%128 );
+      }
+      FastLED.show();
+      delay(33);
+    }
   }
 }
 
-void blank_line(int y, int pause) {
-  for( int x = 0; x < kMatrixWidth; x++ ) {
-    leds[ XYsafe( x,y ) ] = CHSV( 0,0,0 );
+void blank_line(int y, int board_offset, int pause) {
+  int my = y-board_offset;
+  if( my >= 0 && my < kMatrixHeight ) {
+    for( int x = 0; x < kMatrixWidth; x++ ) {
+      leds[ XYsafe( x, my) ] = CHSV( 0,0,0 );
+    }
+    FastLED.show();
+    delay(pause);
   }
-  FastLED.show();
-  delay(pause);
 }
 
 void destroy_line(int y) {
@@ -310,10 +324,8 @@ void loop()
           if( board[x][y] == 0 ) line_full = false;
         }
         if( line_full ) {
-          if( y - board_offset < kMatrixHeight && y - board_offset >= 0 ) {
-            blink_line(y, 96);
-            blank_line(y,100);
-          }
+          blink_line(y, board_offset, 96);
+          blank_line(y, board_offset, 100);
           destroy_line(y);
           // after that long animation, re-read the controller state
           readController();
@@ -337,8 +349,8 @@ void loop()
       // check for game over!
       if( !possible(stone_x, stone_y, rotation) ) {
         for( int y = kBoardHeight - 1; y >= 0; y-- ) {
-          blink_line(y, 18);
-          blank_line(y, 0);
+          blink_line(y, 0, 18);
+          blank_line(y, 0, 0);
           destroy_line(y);
         }
       }
@@ -396,7 +408,7 @@ void display(int board_offset) {
       for( int y = 0; y < 4; y++ ) {
         for( byte p = 0; p < 4; p++ ) {
           if( stone_x + stones[stone][rotation][p][0] == x && stones[stone][rotation][p][1] == y) {
-            leds[ XYsafe(x,base_line + y) ] = CHSV(0, 0, 128);
+            leds[ XYsafe(x,base_line + y) ] = CHSV(0, 0, 96);
           }
         }
       }
@@ -473,6 +485,8 @@ void setup() {
 #endif
   randomSeed(analogRead(A2)+analogRead(IN_ANALOGRIGHT_PIN));
 }
+
+
 
 
 
