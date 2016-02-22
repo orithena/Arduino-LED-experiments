@@ -12,7 +12,8 @@
 #define IN_ANALOGLEFT_UPPER_BOUND    744   // max raw value of left analog controller
 #define IN_ANALOGRIGHT_LOWER_BOUND   235   // min raw value of right analog controller
 #define IN_ANALOGRIGHT_UPPER_BOUND   678   // max raw value of right analog controller
-#define ANALOG_JITTER         24           // not counting analog changes below that threshold
+#define ANALOG_JITTER         16           // not counting analog changes below that threshold
+#define ANALOG_JITTER_FIR_ORDER   4.0      // jitter smoothing filter length
 
 #define IN_BUTTONLEFT_PIN     2            // left digital button pin
 #define IN_BUTTONRIGHT_PIN    3            // right digital button pin
@@ -311,7 +312,7 @@ boolean possible(int pos_x, int pos_y, int rotation) {
 void blink_line(int y, int board_offset, int repeat) {
   int my = y-board_offset;
   if( my < kMatrixHeight ) {
-    int when = repeat/4;
+    int when = max(repeat/6, 10);
     for( int n = 0; n < repeat; n++ ) {
       if( n >= when ) {
         Clear();
@@ -356,9 +357,11 @@ void destroy_line(int y) {
 }
 
 void readController() {
-  int analog_right_raw = analogRead(IN_ANALOGRIGHT_PIN);
-  int analog_left_raw = analogRead(IN_ANALOGLEFT_PIN);
-  if( abs(analog_left_raw_old - analog_left_raw) > ANALOG_JITTER ) {
+  int analog_right_raw = analog_right_raw_old + ((analogRead(IN_ANALOGRIGHT_PIN) - analog_right_raw_old) / ANALOG_JITTER_FIR_ORDER);
+  int analog_left_raw = analog_left_raw_old + ((analogRead(IN_ANALOGLEFT_PIN) - analog_left_raw_old) / ANALOG_JITTER_FIR_ORDER);
+  int analog_right_old = (((long)analog_right*(IN_ANALOGRIGHT_UPPER_BOUND - IN_ANALOGRIGHT_LOWER_BOUND))/255L) + IN_ANALOGRIGHT_LOWER_BOUND;
+  int analog_left_old = (((long)analog_left*(IN_ANALOGLEFT_UPPER_BOUND - IN_ANALOGLEFT_LOWER_BOUND))/255L) + IN_ANALOGLEFT_LOWER_BOUND;
+  if( abs(analog_left_old - analog_left_raw) > ANALOG_JITTER ) {
     if( analog_left_raw > IN_ANALOGLEFT_UPPER_BOUND ) analog_left_raw = IN_ANALOGLEFT_UPPER_BOUND;
     if( analog_left_raw < IN_ANALOGLEFT_LOWER_BOUND ) analog_left_raw = IN_ANALOGLEFT_LOWER_BOUND;
     analog_left = ((analog_left_raw - IN_ANALOGLEFT_LOWER_BOUND) * 255L) / (IN_ANALOGLEFT_UPPER_BOUND - IN_ANALOGLEFT_LOWER_BOUND);
@@ -370,11 +373,10 @@ void readController() {
     Serial.println(analog_left_raw_old);
 #endif
   }
-  if( abs(analog_right_raw_old - analog_right_raw) > ANALOG_JITTER ) {
+  if( abs(analog_right_old - analog_right_raw) > ANALOG_JITTER ) {
     if( analog_right_raw > IN_ANALOGRIGHT_UPPER_BOUND ) analog_right_raw = IN_ANALOGRIGHT_UPPER_BOUND;
     if( analog_right_raw < IN_ANALOGRIGHT_LOWER_BOUND ) analog_right_raw = IN_ANALOGRIGHT_LOWER_BOUND;
     analog_right = ((analog_right_raw - IN_ANALOGRIGHT_LOWER_BOUND) * 255L) / (IN_ANALOGRIGHT_UPPER_BOUND - IN_ANALOGRIGHT_LOWER_BOUND);
-    analog_right_raw_old = analog_right_raw;
 #ifdef DEBUG
     Serial.print("right ");
     Serial.print(analog_right);
@@ -382,6 +384,8 @@ void readController() {
     Serial.println(analog_right_raw_old);
 #endif
   }
+  analog_left_raw_old = analog_left_raw;
+  analog_right_raw_old = analog_right_raw;
 }
 
 void loop()
@@ -435,9 +439,9 @@ void loop()
         if( line_full ) {
           lines++;
           just_now_completed_lines++;
-          level = LEVEL_FORMULA;
           points += 2 << just_now_completed_lines;
-          blink_line(y, board_offset, 80);
+          blink_line(y, board_offset, (level != LEVEL_FORMULA ? 100 : 10));
+          level = LEVEL_FORMULA;
           blank_line(y, board_offset, 100);
           destroy_line(y);
 
@@ -463,11 +467,13 @@ void loop()
       // check for game over!
       if( !possible(stone_x, stone_y, rotation) ) {
         for( int y = kBoardHeight - 1; y >= 0; y-- ) {
-          if( !(y < board_offset + kMatrixHeight - 3 && (digitalRead(IN_BUTTONLEFT_PIN) == HIGH)) ) {
-            blink_line(y, 0, 80);
+          destroy_line(y);
+        }
+        for( int y = kMatrixHeight - 1; y >= 0; y-- ) {
+          if( (y > kMatrixHeight - 3) || (digitalRead(IN_BUTTONLEFT_PIN) == LOW) ) {
+            blink_line(y, 0, 90);
           }
           blank_line(y, 0, 0);
-          destroy_line(y);
         }
         points = 0;
         level = 0;
