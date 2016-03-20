@@ -1,10 +1,12 @@
+#include <Arduino.h>
+
 #include <FastLED.h>
 
 //#define DEBUG
 #define LED_PIN               6            // LED chain data pin
 #define COLOR_ORDER RGB                    // LED chip color order
 #define CHIPSET     WS2811                 // LED chipset
-#define BRIGHTNESS 255                     // LED overall brightness
+#define BRIGHTNESS 128                     // LED overall brightness
 
 #define IN_ANALOGRIGHT_PIN   A3
 #define IN_ANALOGLEFT_PIN    A4
@@ -79,94 +81,94 @@ byte board[ kBoardWidth ][ kBoardHeight ];
 const char stones[7][4][4][2] = { 
   { // 0 = square
     { 
-      _BA, _BB, _CA, _CB                     }
+      _BA, _BB, _CA, _CB                                         }
     ,
     { 
-      _BA, _BB, _CA, _CB                     }
+      _BA, _BB, _CA, _CB                                         }
     ,
     { 
-      _BA, _BB, _CA, _CB                     }
+      _BA, _BB, _CA, _CB                                         }
     ,
     { 
-      _BA, _BB, _CA, _CB                     }
+      _BA, _BB, _CA, _CB                                         }
   }
   , { // 1 = el block
     { 
-      _AA, _AB, _BB, _CB                     }
+      _AA, _AB, _BB, _CB                                         }
     ,
     { 
-      _AC, _BA, _BB, _BC                     }
+      _AC, _BA, _BB, _BC                                         }
     ,
     { 
-      _AA, _BA, _CA, _CB                     }
+      _AA, _BA, _CA, _CB                                         }
     ,
     { 
-      _BA, _BB, _BC, _CA                     }
+      _BA, _BB, _BC, _CA                                         }
   }
   , { // 2 = reverse squiggely
     { 
-      _AB, _BB, _BA, _CA                     }
+      _AB, _BB, _BA, _CA                                         }
     ,
     { 
-      _AA, _AB, _BB, _BC                     }
+      _AA, _AB, _BB, _BC                                         }
     ,
     { 
-      _AB, _BB, _BA, _CA                     }
+      _AB, _BB, _BA, _CA                                         }
     ,
     { 
-      _AA, _AB, _BB, _BC                     }
+      _AA, _AB, _BB, _BC                                         }
   }
   , { // 3 = reverse el block
     { 
-      _AA, _AB, _BA, _CA                     }
+      _AA, _AB, _BA, _CA                                         }
     ,
     { 
-      _BA, _BB, _BC, _CC                     }
+      _BA, _BB, _BC, _CC                                         }
     ,
     { 
-      _AB, _BB, _CB, _CA                     }
+      _AB, _BB, _CB, _CA                                         }
     ,
     { 
-      _AA, _BA, _BB, _BC                     }
+      _AA, _BA, _BB, _BC                                         }
   }
   , { // 4 = T block
     { 
-      _AB, _BB, _BA, _CB                     }
+      _AB, _BB, _BA, _CB                                         }
     ,
     { 
-      _AB, _BB, _BA, _BC                     }
+      _AB, _BB, _BA, _BC                                         }
     ,
     { 
-      _AA, _BB, _BA, _CA                     }
+      _AA, _BB, _BA, _CA                                         }
     ,
     { 
-      _BA, _BB, _BC, _CB                     }
+      _BA, _BB, _BC, _CB                                         }
   }
   , { // 5 = squiggely
     { 
-      _AA, _BA, _BB, _CB                     }
+      _AA, _BA, _BB, _CB                                         }
     ,
     { 
-      _BC, _BB, _CB, _CA                     }
+      _BC, _BB, _CB, _CA                                         }
     ,
     { 
-      _AA, _BA, _BB, _CB                     }
+      _AA, _BA, _BB, _CB                                         }
     ,
     { 
-      _BC, _BB, _CB, _CA                     }
+      _BC, _BB, _CB, _CA                                         }
   }
   , { // 6 = LINE PIECE!!!
     { 
-      _BA, _BB, _BC, _BD                     }
+      _BA, _BB, _BC, _BD                                         }
     ,
     { 
-      _AA, _BA, _CA, _DA                     }
+      _AA, _BA, _CA, _DA                                         }
     ,
     { 
-      _BA, _BB, _BC, _BD                     }
+      _BA, _BB, _BC, _BD                                         }
     ,
     { 
-      _AA, _BA, _CA, _DA                     }
+      _AA, _BA, _CA, _DA                                         }
   }
 };
 
@@ -269,11 +271,11 @@ static unsigned char Font5x7[] = {
   0x08, 0x1C, 0x2A, 0x08, 0x08 // <-
 };
 
-// internal state variables
+// internal state variables and their defaults
 volatile byte stone = 6;
 volatile byte rotation = 0;
-int analog_left, analog_left_raw_old = 0;
-int analog_right, analog_right_raw_old = 0;
+volatile int analog_left, analog_left_raw_old = 0;
+volatile int analog_right, analog_right_raw_old = 0;
 int stone_x = kBoardWidth/2;
 int stone_y = kBoardHeight;
 int lines = 0;
@@ -281,6 +283,7 @@ int points = 0;
 int level = 0;
 volatile uint32_t oldmillis = 0;
 uint32_t last_stone_move = 0;
+volatile boolean demo_mode = true;
 
 uint16_t XYsafe( int x, int y)
 {
@@ -295,18 +298,56 @@ inline boolean between(int l, int x, int u) {
   return (unsigned)(x - l) <= (u - l);
 }
 
-boolean possible(int pos_x, int pos_y, int rotation) {
+int air_below(int stone_idx, int pos_x, int pos_y, int rotation) {
+  int count = 0;
   for( int p = 0; p < 4; p++ ) {
-    if( !between(0, pos_x + stones[stone][rotation][p][0], kBoardWidth-1 ) ) return false;
-    if( pos_y + stones[stone][rotation][p][1] < 0 ) return false;
-    if( between(0, pos_x + stones[stone][rotation][p][0], kBoardWidth-1  ) &&
-      between(0, pos_y + stones[stone][rotation][p][1], kBoardHeight-1 ) ) {
-      if( board[ pos_x + stones[stone][rotation][p][0] ][ pos_y + stones[stone][rotation][p][1] ] > 0 ) {
+    if(stones[stone_idx][rotation][p][1] > 1) {
+      count++;
+      break;
+    }
+  }
+  for( int p = 0; p < 4; p++ ) {
+    int pixel_x = pos_x + stones[stone_idx][rotation][p][0];
+    int pixel_y = pos_y + stones[stone_idx][rotation][p][1];
+    boolean dontcount = false;
+    for( int p2 = 0; p2 < 4; p2++ ) {
+      if( pos_x + stones[stone_idx][rotation][p2][0] == pixel_x && pos_y + stones[stone_idx][rotation][p2][1] == pixel_y - 1 ) {
+        dontcount = true;
+      }
+    }
+    if( !dontcount ) {
+      for( int y = pixel_y-1; y >= 0; y-- ) {
+        if( board[pixel_x][y] == 0 ) {
+          count++;
+        } else {
+          break;
+        }
+      }
+    }
+  }
+  return count;
+}
+
+
+
+boolean possible_stone(int stone_idx, int pos_x, int pos_y, int rotation) {
+  for( int p = 0; p < 4; p++ ) {
+    int pixel_x = pos_x + stones[stone_idx][rotation][p][0];
+    int pixel_y = pos_y + stones[stone_idx][rotation][p][1];
+    if( !between(0, pixel_x, kBoardWidth-1 ) ) return false;
+    if( pixel_y < 0 ) return false;
+    if( between(0, pixel_x, kBoardWidth-1  ) &&
+      between(0, pixel_y, kBoardHeight-1 ) ) {
+      if( board[ pixel_x ][ pixel_y ] > 0 ) {
         return false;
       }
     }
   }
   return true;
+}
+
+boolean possible(int pos_x, int pos_y, int rotation) {
+  return possible_stone(stone, pos_x, pos_y, rotation);
 }
 
 void blink_line(int y, int board_offset, int repeat) {
@@ -355,7 +396,6 @@ void destroy_line(int y) {
     board[dx][kBoardHeight-1] = 0;
   }
 }
-
 void readController() {
   int analog_right_raw = analog_right_raw_old + ((analogRead(IN_ANALOGRIGHT_PIN) - analog_right_raw_old) / ANALOG_JITTER_FIR_ORDER);
   int analog_left_raw = analog_left_raw_old + ((analogRead(IN_ANALOGLEFT_PIN) - analog_left_raw_old) / ANALOG_JITTER_FIR_ORDER);
@@ -388,14 +428,60 @@ void readController() {
   analog_right_raw_old = analog_right_raw;
 }
 
+int index_tr(int idx, int highest) {
+  return (idx % 2 == 0 ? idx/2 : highest - idx/2);
+}
+
 void loop()
 {
   uint32_t ms = millis();
   readController();
 
   int board_offset = ((analog_left * (kBoardHeight - kMatrixHeight)) / 240);
+  if( demo_mode ) {
+    //set scroll position
+    board_offset = stone_y - 4;
+    if(board_offset < 0) {
+      board_offset = 0;  
+    }
+    if(board_offset > kBoardHeight - kMatrixHeight) {
+      board_offset = kBoardHeight - kMatrixHeight;
+    }
+  }
 
   int new_x = kBoardWidth - 1 - ((analog_right * kBoardWidth) / 256);
+
+  if( demo_mode ) {
+    new_x = kBoardWidth/2;
+    int new_r = 0;
+    int best_air_below = 30000;
+    for( int y = stone_y; y >= 0; y-- ) {
+      for( int x = 0; x <= kBoardWidth-1; x++) {
+        int tx = x; //alternative: tx = index_tr(x, kBoardWidth-1);
+        for( int r = 0; r <= 3; r++) {
+          int tr = index_tr(3-r, 3);
+          if( possible_stone( stone,tx,y,tr ) && air_below( stone, tx, y, tr ) < best_air_below ) {
+            boolean okay = true;
+            for( int yy = y; yy < stone_y; yy++ ) {
+              if( !possible( tx,yy,tr ) ) {
+                okay = false;
+              }
+            }
+            if( okay ) {
+              new_x = tx;
+              new_r = tr;
+              best_air_below = air_below( stone, tx, y, tr );
+            }
+          }
+        }
+      }
+      best_air_below += 1;
+    }
+    if( rotation != new_r ) {
+      rotate();
+    }
+  }
+
   for( int x = stone_x; (stone_x < new_x ? x <= new_x : x >= new_x); x = (stone_x < new_x ? x+1 : x-1) ) {
     if( possible(x, stone_y, rotation) ) {
       stone_x = x;
@@ -406,7 +492,7 @@ void loop()
   }
 
   boolean button_left = (digitalRead(IN_BUTTONLEFT_PIN) == HIGH);
-  if( ms - last_stone_move > (button_left ? FAST_MOVE_TIME : (SLOW_MOVE_TIME - (level*SLOW_MOVE_STEP) ) ) ) {
+  if( ms - last_stone_move > (button_left ? FAST_MOVE_TIME : (SLOW_MOVE_TIME - (level*SLOW_MOVE_STEP) )/(demo_mode ? 4 : 1) ) ) {
 #ifdef DEBUG
     Serial.print("board_offset: ");
     Serial.println(board_offset);
@@ -418,6 +504,16 @@ void loop()
     int new_y = stone_y - 1;
     if( possible(stone_x, new_y, rotation) ) {
       stone_y = new_y;
+      if( demo_mode ) {
+        //set scroll position
+        board_offset = stone_y - 4;
+        if(board_offset < 0) {
+          board_offset = 0;  
+        }
+        if(board_offset > kBoardHeight - kMatrixHeight) {
+          board_offset = kBoardHeight - kMatrixHeight;
+        }
+      }
     } 
     else { 
       // stone cannot go down, fix it to board!
@@ -442,6 +538,9 @@ void loop()
           points += 2 << just_now_completed_lines;
           blink_line(y, board_offset, (level != LEVEL_FORMULA ? 100 : 10));
           level = LEVEL_FORMULA;
+          if( level > 10 ) {
+            level = 10;
+          }
           blank_line(y, board_offset, 100);
           destroy_line(y);
 
@@ -466,6 +565,9 @@ void loop()
 
       // check for game over!
       if( !possible(stone_x, stone_y, rotation) ) {
+        if( points < 12 ) {
+          demo_mode = true;
+        }
         for( int y = kBoardHeight - 1; y >= 0; y-- ) {
           destroy_line(y);
         }
@@ -488,6 +590,7 @@ void loop()
     Serial.println(stone_y);
 #endif
   }
+
   display(board_offset);
   /*
   uint32_t xms = ms / 8;
@@ -580,25 +683,32 @@ void button_left() {
   }
 }
 
+void rotate() {
+  int test_rot = (rotation + 1) % 4;
+  // lets try rotating that stone.
+  if( possible( stone_x, stone_y, test_rot ) ) {
+    rotation = test_rot;
+  } // we might be at the right wall. try one position to the left.
+  else if( possible( stone_x-1, stone_y, test_rot ) ) {
+    stone_x -= 1;
+  } // nope? might be the left wall. try one position to the right.
+  else if( possible( stone_x+1, stone_y, test_rot ) ) {
+    stone_x += 1;
+  } // okay, we've still got the long stick that might want to move two positions to the left.
+  else if( possible( stone_x-2, stone_y, test_rot ) ) {
+    stone_x -= 2;
+  } // I give up and leave it at that.
+  else {
+    test_rot = rotation;
+  }
+  rotation = test_rot;
+}
+
 void button_right() {
   uint32_t ms = millis();
   if( ms > oldmillis+PRELLBOCKZEIT) {
-    // lets try rotating that stone.
-    if( possible( stone_x, stone_y, (rotation + 1) % 4 ) ) {
-      rotation = (rotation + 1) % 4;
-    } // we might be at the right wall. try one position to the left.
-    else if( possible( stone_x-1, stone_y, (rotation + 1) % 4 ) ) {
-      stone_x -= 1;
-      rotation = (rotation + 1) % 4;
-    } // nope? might be the left wall. try one position to the right.
-    else if( possible( stone_x+1, stone_y, (rotation + 1) % 4 ) ) {
-      stone_x += 1;
-      rotation = (rotation + 1) % 4;
-    } // okay, we've still got the long stick that might want to move two positions to the left.
-    else if( possible( stone_x-2, stone_y, (rotation + 1) % 4 ) ) {
-      stone_x -= 2;
-      rotation = (rotation + 1) % 4;
-    } // I give up and leave it at that.
+    demo_mode = false;
+    rotate();
     oldmillis = ms;
   }
 }
@@ -665,6 +775,11 @@ void setup() {
   delay(3000);
 #endif
 }
+
+
+
+
+
 
 
 
