@@ -328,16 +328,17 @@ void FireLoop() {
   if( firecount % 4 <= 1 ) {
     for( byte x = 0; x < kMatrixWidth+2; x++ ) {
       byte r = random(128);
-      buf[bufi][x][kMatrixHeight+2] =  r+32;
-      buf[bufi][x][kMatrixHeight+3] = r+64;
+      buf[bufi][x][kMatrixHeight+2] = r+48;
+      buf[bufi][x][kMatrixHeight+3] = r+96;
     }
   }
   if( mic_mean_delta > 8 ) {
-    byte w = min(4, mic_mean_delta/16) + 1;
-    byte o = 1+w+random(kMatrixWidth-w-1);
-    for( byte x = o-w; x <= o+w; x++) {
+    byte width = min(4, mic_mean_delta/16) + 1;
+    byte shade = max(0, 64 - (mic_mean_delta/width));
+    byte offset = 1+width+random(kMatrixWidth-width-1);
+    for( byte x = offset-width; x <= offset+width; x++) {
       for( byte y = 1; y <= 3; y++)  {
-        buf[bufi][x][kMatrixHeight+y] = 255-((y-1)*64);
+        buf[bufi][x][kMatrixHeight+y] = 255-((y-1)*32)-shade;
       }
     }
   }
