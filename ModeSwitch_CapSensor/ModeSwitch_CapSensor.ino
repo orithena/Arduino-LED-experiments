@@ -20,7 +20,7 @@ void setup() {
   randomSeed(analogRead(A5));
   sensor_setup();
   led_setup();
-  switch_current_mode(0);
+  switch_current_mode(3);
 }
 
 void loop() {

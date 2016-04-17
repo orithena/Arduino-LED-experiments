@@ -1,4 +1,4 @@
-#define GOL_ROUNDTIME 384
+#define GOL_ROUNDTIME 512
 
 byte gol_buf[ 4 ][ kMatrixWidth ][ kMatrixHeight ];
 byte gol_bufi = 0;
@@ -14,7 +14,6 @@ void gol_loop()
 {
   uint32_t ms = millis();
 
-  //PaletteTestLoop(ms/10);
   if( ms > nextrun ) {
     if( repetitions > 5 ) {
       GameOfLifeInit();
@@ -29,6 +28,10 @@ void gol_loop()
 }
 
 byte valueof(byte b, int x, int y) {
+  return gol_buf[b][_mod(x,kMatrixWidth)][_mod(y,kMatrixHeight)] > 0 ? 1 : 0;
+}
+
+byte colorof(byte b, int x, int y) {
   return gol_buf[b][_mod(x,kMatrixWidth)][_mod(y,kMatrixHeight)];
 }
 
@@ -43,6 +46,27 @@ int neighbors(byte b, int x, int y) {
     }
   }
   return count;
+}
+
+byte neighborcolor(byte b, int x, int y) {
+  double cos_sum = 0.0;
+  double sin_sum = 0.0;
+  for( int xi = x-1; xi <= x+1; xi++ ) {
+    for( int yi = y-1; yi <= y+1; yi++ ) {
+      if( !(xi == x && yi == y)) {
+        if( valueof(b,xi,yi) > 0 ) {
+          double phi = (((double)(colorof(b,xi,yi)) * PI) / 128.0);
+          cos_sum = cos_sum + cos(phi);
+          sin_sum = sin_sum + sin(phi);
+        }
+      }
+    }
+  }
+  double phi_n = atan2(sin_sum, cos_sum);
+  while( phi_n < 0.0 ) phi_n += 2*PI;
+  byte color = (phi_n * 128.0) / PI;
+  if(color == 0) color = 1;
+  return color;
 }
 
 boolean alive(byte b, int x, int y) {
@@ -76,7 +100,12 @@ void GameOfLifeInit() {
       gol_buf[gol_bufi][x][y] = (gol[x] >> y) & 0x01;
       gol_buf[2][x][y] = (gol[x] >> y) & 0x01;
 #else
-      int r = random(2);
+      byte r;
+      if( random(2) == 0) {
+        r = 0;
+      } else {
+        r = (random(3)*85 ) + 1;
+      }
       gol_buf[gol_bufi][x][y] = r;
       gol_buf[2][x][y] = r;
 #endif
@@ -94,7 +123,7 @@ void GameOfLifeInit() {
 boolean gol_buf_compare(int b1, int b2) {
   for( int x = 0; x < kMatrixWidth; x++ ) {
     for( int y = 0; y < kMatrixHeight; y++ ) {
-      if( gol_buf[b1][x][y] != gol_buf[b2][x][y] ) {
+      if( (gol_buf[b1][x][y] == 0) != (gol_buf[b2][x][y] == 0) ) {
         return false;
       }
     }
@@ -121,7 +150,7 @@ int generation(int from, int to) {
       } 
       else {
         if( n == 3 ) { //reproduction
-          gol_buf[to][x][y] = 1;
+          gol_buf[to][x][y] = neighborcolor(from, x, y);
           currentlyalive++;
         } 
         else {
@@ -149,21 +178,16 @@ void GameOfLifeLoop() {
   }
 
   iterations++;
-
-  /*  for( int x = 0; x < kMatrixWidth; x++ ) {
-   for( int y = 0; y < kMatrixHeight; y++ ) {
-   leds[ XYsafe(x,y) ] = CHSV(currentcolor, 255, 255 * gol_buf[gol_bufi][x][y]);
-   }
-   }*/
 }
 
 void GameOfLifeFader(int cstep) {
-  if( cstep <= 192 ) {
+  int spd = (GOL_ROUNDTIME * 3) / 4;
+  if( cstep <= spd ) {
     for( int x = 0; x < kMatrixWidth; x++ ) {
       for( int y = 0; y < kMatrixHeight; y++ ) {
-        double from = gol_buf[gol_bufi^0x01][x][y];
-        double to = gol_buf[gol_bufi][x][y];
-        leds[ XYsafe(x,y) ] = CHSV(currentcolor, 255, 255 * (from + ((to-from) * cstep) / 192) );
+        double from = valueof(gol_bufi^0x01, x, y);
+        double to = valueof(gol_bufi, x, y);
+        leds[ XYsafe(x,y) ] = CHSV(colorof(to == 0 ? gol_bufi^0x01 : gol_bufi, x, y), 255, 255 * (from + ((to-from) * cstep) / spd) );
       }
     }
   }
