@@ -1,10 +1,10 @@
 #include <FastLED.h>
-#include <avr/pgmspace.h>
+//#include <avr/pgmspace.h>
 
 //#define DEBUG
 //#define DEBUGIR
-#define MODE_MAX 3
-char* mode_names[] = { "Demo", "Tetris", "Soundfire", "Game of Life" };
+#define MODE_MAX 4
+static char* mode_names[] = { "Demo", "Tetris", "Fire", "GoL", "Func" };
 
 #define DEMO_TEXT_COUNT 4
 //PROGMEM char* const demo_text_lines[] = { "Is this the real life?", "Is this just fantasy?", "Caught in a landslide", "No escape from reality" };
@@ -20,7 +20,7 @@ void setup() {
   randomSeed(analogRead(A5));
   sensor_setup();
   led_setup();
-  switch_current_mode(3);
+  switch_current_mode(4);
 }
 
 void loop() {
@@ -71,6 +71,9 @@ void switch_mode(int mode) {
   case 3:
     gol_setup();
     break;
+  case 4:
+    test_setup();
+    break;
   }
 
 }
@@ -85,6 +88,9 @@ void mode_loop(int mode) {
     break;
   case 3:
     gol_loop();
+    break;
+  case 4:
+    test_loop();
     break;
   }
 }

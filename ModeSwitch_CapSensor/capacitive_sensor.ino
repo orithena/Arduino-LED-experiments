@@ -2,7 +2,7 @@
 #define SENSOR_PIN 2
 #define SENSOR_INT 0
 #define SENSOR_THRESHOLD 100
-#define SENSOR_INCREMENT 2
+#define SENSOR_INCREMENT 12
 
 volatile unsigned long sensor_count = 0;
 volatile unsigned long sensor_last_rising = 0;

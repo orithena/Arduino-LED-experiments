@@ -551,6 +551,7 @@ void button_right() {
 }
 
 void tetris_setup() {
+  demo_mode = true;
   pinMode(IN_BUTTONLEFT_PIN, INPUT);
   pinMode(IN_BUTTONRIGHT_PIN, INPUT);
   //  attachInterrupt(IN_BUTTONLEFT_PIN-2, button_left, RISING);

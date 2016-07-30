@@ -3,7 +3,7 @@
 #define LED_PIN               6            // LED chain data pin
 #define COLOR_ORDER RGB                    // LED chip color order
 #define CHIPSET     WS2811                 // LED chipset
-#define BRIGHTNESS 128                     // LED overall brightness
+#define BRIGHTNESS 72                     // LED overall brightness
 
 // Params for width and height of the LED Matrix
 const uint8_t kMatrixWidth = 10;
