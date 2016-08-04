@@ -3,8 +3,8 @@
 
 //#define DEBUG
 //#define DEBUGIR
-#define MODE_MAX 4
-static char* mode_names[] = { "Demo", "Tetris", "Fire", "GoL", "Func" };
+#define MODE_MAX 5
+static char* mode_names[] = { "Demo", "Tetris", "Fire", "GoL", "F1", "F2" };
 
 #define DEMO_TEXT_COUNT 4
 //PROGMEM char* const demo_text_lines[] = { "Is this the real life?", "Is this just fantasy?", "Caught in a landslide", "No escape from reality" };
@@ -20,7 +20,7 @@ void setup() {
   randomSeed(analogRead(A5));
   sensor_setup();
   led_setup();
-  switch_current_mode(4);
+  switch_current_mode(5);
 }
 
 void loop() {
@@ -74,6 +74,9 @@ void switch_mode(int mode) {
   case 4:
     test_setup();
     break;
+  case 5:
+    test2_setup();
+    break;
   }
 
 }
@@ -91,6 +94,9 @@ void mode_loop(int mode) {
     break;
   case 4:
     test_loop();
+    break;
+  case 5:
+    test2_loop();
     break;
   }
 }
