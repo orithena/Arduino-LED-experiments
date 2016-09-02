@@ -51,8 +51,19 @@ void test_loop() {
   }
   FastLED.show();
 }
+void calc_mic() {
+  mic_cur = analogRead(A1);
+  mic_delta = mic_cur - mic_old;
+  mic_mean += mic_delta / 4;
+  mic_mean_delta = mic_mean - mic_mean_old;
+  
+  mic_mean_far += mic_mean_delta / 16;
+  mic_old = mic_cur;
+  mic_mean_old = mic_mean;
+}
 void test2_loop() {
-  double step = (millis() >> 6) & 0x003FFFFF; 
+  //calc_mic();
+  double step = 0x00400000 - ((millis() >> 6) & 0x003FFFFF); 
   byte hue = 0;
   for( byte y = 0; y < kMatrixWidth; y++ ) {
     hue = step + (89 * sin( ((y*step)/(kMatrixWidth*PI)) * 0.04 ) );

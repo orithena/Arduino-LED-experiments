@@ -11,8 +11,6 @@ void firemic_loop()
   mic_mean += mic_delta / 4;
   mic_mean_delta = mic_mean - mic_mean_old;
   
-  
-  
   mic_mean_far += mic_mean_delta / 16;
   mic_old = mic_cur;
   mic_mean_old = mic_mean;
