@@ -24,6 +24,7 @@ CRGB leds[NUM_LEDS];
 
 byte mode = 0, variance = 255, hue = 0, sat = 255, val = 255, power = 1;
 uint32_t last_mode_press = 0;
+uint32_t last_button_press = 0;
 
 void setup() { 
   // Initialize the LEDs
@@ -37,8 +38,10 @@ void setup() {
 
 uint32_t doffset = 0;
 uint16_t offset = 0;
+uint32_t counter = 0;
 void loop() { 
-  read_buttons();
+  uint32_t ms = millis();
+  read_buttons(ms);
 
   for( int i = 0; i < NUM_LEDS; i++ ) {
   
@@ -66,26 +69,41 @@ void loop() {
       computed_hue = hue + offset + (i*93);
     }
     if( mode == 6 ) {
-      uint32_t time = (millis() - last_mode_press) >> 10;
-      if( time < 1 ) {
-        computed_sat = 0;
-        computed_val = millis() & 0x000000FF;
-      } else if( time < 1800 ) {
+      uint32_t time = ((ms - last_mode_press) >> 10) * 0.9375;
+      uint32_t p1 = variance*14.116, 
+               p2 = p1+60+(variance*2), 
+               p3 = 14400 + (val*80), 
+               p4 = p3+600;
+      if( time < 1 || ((ms - last_button_press) >> 10) < 2 ) {
+        byte red = (600*(i+1) < p1) 
+                    ? 255 
+                    : (600*i < p1) 
+                       ? ((p1%600)*0.425) 
+                       : 0;
+        byte white = (3600*(i+1) < p3) 
+                      ? 0 
+                      : (3600*i < p3) 
+                        ? 255-((p3%3600)*0.07) 
+                        : 255;
+        computed_hue = 0;
+        computed_sat = red;
+        computed_val = max(max(red, white), 32);
+      } else if( time < p1 ) {
         computed_sat = 192;
         computed_val = 255;
-      } else if( time < 2400 ) {
+      } else if( time < p2 ) {
         computed_hue = 0;
-        computed_sat = 192 + ((time-1800)*0.105);
-        computed_val = 255 - ((time-1800)*0.375);
-      } else if( time < 25000 ) {
+        computed_sat = 192 + ( (time-p1) * ( 63.0/(p2-p1)) );
+        computed_val = 255 - ( (time-p1) * (225.0/(p2-p1)) );
+      } else if( time < p3 ) {
         computed_hue = 0;
         computed_sat = 255;
-        computed_val = 32;
-      } else if( time < 26000 ) {
-        computed_sat = 255 - ((time-25000)*0.255);
-        computed_val = 32 + ((time-25000)*0.223);
+        computed_val =  16;
+      } else if( time < p4 ) {
+        computed_sat = 255 - ( (time-p3) * (255.0/(p4-p3)) );
+        computed_val =  32 + ( (time-p3) * (223.0/(p4-p3)) );
       } else {
-        computed_sat = 0;
+        computed_sat =   0;
         computed_val = 255;
       }
     }
@@ -98,46 +116,59 @@ void loop() {
       FastLED.setBrightness(255);
     }
 
-    FastLED.show();
-    //delay(1);
+    if( counter == 0 ) {
+      FastLED.show();
+    }
+    delay(1);
   }
   doffset = (doffset + variance);
   offset = (doffset>>8) & 0x000000FF;
+  counter = (counter + 1) & 0x00000003;
 }
 
-void read_buttons() {
+void read_buttons(uint32_t ms) {
   if( digitalRead(P_OFF) == LOW ) {
+    last_button_press = ms;
     power = 0;
   }
   if( digitalRead(P_MODE) == LOW ) {
-    if( power == 1 && last_mode_press < (millis() - 100) ) {
+    last_button_press = ms;
+    if( power == 1 && last_mode_press < (ms - 100) ) {
       mode = (mode + 1) % MODE_COUNT;
     }
     power = 1;
-    last_mode_press = millis();
+    last_mode_press = ms;
   }
   if( digitalRead(P_HUE_UP) == LOW) {
+    last_button_press = ms;
     hue++;
   }
   if( digitalRead(P_HUE_DOWN) == LOW) {
+    last_button_press = ms;
     hue--;
   }
   if( digitalRead(P_SAT_UP) == LOW && sat < 255) {
+    last_button_press = ms;
     sat++;
   }
   if( digitalRead(P_SAT_DOWN) == LOW && sat > 0) {
+    last_button_press = ms;
     sat--;
   }
   if( digitalRead(P_VAL_UP) == LOW && val < 255) {
+    last_button_press = ms;
     val++;
   }
   if( digitalRead(P_VAL_DOWN) == LOW && val > 0) {
+    last_button_press = ms;
     val--;
   }
   if( digitalRead(P_VAR_UP) == LOW && variance < 255) {
+    last_button_press = ms;
     variance++;
   }
   if( digitalRead(P_VAR_DOWN) == LOW && variance > 0) {
+    last_button_press = ms;
     variance--;
   }
 }
