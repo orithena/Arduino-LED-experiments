@@ -1,7 +1,7 @@
 #include "FastLED.h"
 
 // How many leds in your strip?
-#define NUM_LEDS 16
+#define NUM_LEDS 12
 // Where is the LED data line connected?
 #define DATA_PIN 2
 
@@ -22,8 +22,9 @@ void loop() {
 
   for( int i = 0; i < NUM_LEDS; i++ ) {
   
-    leds[i] = CHSV((offset + (i*10)) % 256,255,255);
-
+    if( i < 4 || i > 7 ) {
+      leds[i] = CHSV((offset + (i*(256/NUM_LEDS)) % 256),255,255);
+    }
     FastLED.show();
     delay(1);
   }
