@@ -29,6 +29,9 @@
 
 // ===== Definitions
 
+// Is the Debug Mode on? (a.k.a. Serial Output?)
+#define DEBUG
+
 // How many leds in your strip?
 #define NUM_LEDS 12
 
@@ -53,7 +56,7 @@
 #define TRACK_ACTIVITY_INCREMENT 12
 #define TRACK_ACTIVITY_DECREMENT 1
 // delay loop presets -- LEDs are updated every (DELAY_LOOP_COUNT*DELAY_LOOP_WAIT) ms
-#define DELAY_LOOP_COUNT 10
+#define DELAY_LOOP_COUNT 20
 // sensors are read every DELAY_LOOP_WAIT ms
 #define DELAY_LOOP_WAIT 2
 
@@ -98,6 +101,10 @@ void setup() {
   }
   // Initialize Power Button pin
   pinMode(POWER_PIN, INPUT_PULLUP); 
+
+#ifdef DEBUG
+  Serial.begin(115200);
+#endif
   
   // Initialize FastLED library
   FastLED.addLeds<APA106, DATA_PIN, RGB>(leds, NUM_LEDS);
@@ -120,11 +127,30 @@ void loop() {
   
   calculate_common_variables();     // derive common variables from track[] array
 
+  background_lights();              // calculate the eight background LEDs
+
   light_track_leds();               // calculate the four center LEDs
 
-  background_lights();              // calculate the eight background LEDs
+#ifdef DEBUG
+  for( int a = 0; a < NUM_LEDS; a++ ) {
+    PrintHex8(&(leds[a].r), 1);
+    PrintHex8(&(leds[a].g), 1);
+    PrintHex8(&(leds[a].b), 1);
+    Serial.print("  ");
+  }
+  Serial.println();
+#endif
   
   FastLED.show();                   // send leds[] array out to the LED chain
+}
+
+void PrintHex8(uint8_t *data, uint8_t length) // prints 8-bit data in hex with leading zeroes
+{
+     char tmp[16];
+       for (int i=0; i<length; i++) { 
+         sprintf(tmp, "%.2X",data[i]); 
+         Serial.print(tmp); Serial.print(" ");
+       }
 }
 
 void calculate_common_variables() {
@@ -158,7 +184,7 @@ void background_lights() {
     int led = (( a < 4 ) ? a : (a + 4));   // map a, which is (0..7) to actual background led number (0..3,8..11)
     int hue, sat, val;
     // calculate this LEDs color
-    hue = (rotator) + ((ms>> (7+((cos_rotator>>6)&0x03)) ) + (a*((rotator>>2)+(soft_track_energy>>6)))) & 0xFF;
+    hue = (rotator) + ((ms>> (5+((cos_rotator>>6)&0x03)) ) + (a*((rotator>>2)+(soft_track_energy>>6)))) & 0xFF;
     // calculate this LEDs saturation
     sat = 255 - min(fading_track_energy >> 4, 255);
     // calclulate this LEDs value
@@ -188,24 +214,30 @@ void light_track_leds() {
       leds[7-a] = CHSV((cos_rotator+(a*(soft_track_energy>>4))) & 0xFF, 255, bright > 255 ? 255 : bright);
     } else {
       // if all tracks are inactive and fading_track_energy is faded out, we switch to the "pause animation" on the track LEDs
-      // this implementation here simply takes a dimmed average of the background LEDs
-      
       // b is the actual LED number
       int b = 4+a;
-      // i and j are the LED numbers where we take the average from. 
-      // this is a bit of bit operation magic to fulfill this mapping:
-      //  LED 7 takes the RGB average of LEDs 11 and 0
-      //  LED 6 takes the RGB average of LEDs 9 and 10
-      //  LED 5 takes the RGB average of LEDs 1 and 2
-      //  LED 4 takes the RGB average of LEDs 3 and 8
-      int j = ( (~b)<<3 | ((( (b>>1) ^ b )&1)<<1) )&0x0F;
-      int i = ( (~j & ~0x0C) | ((b<<2) & 0x08) )&0x0F;
-      
-      // this calculates the average of two LEDs, dims it and puts it out to the "track LEDs"
-      // remember, ">> 1" (shift bitfield right) equals "divide by 2", ">> 2" = "divide by 4", ...
-      leds[b].r = (leds[i].r + leds[j].r) >> 3;
-      leds[b].g = (leds[i].g + leds[j].g) >> 3;
-      leds[b].b = (leds[i].b + leds[j].b) >> 3;
+
+      if( rotator & 0x01 == 0 ) {
+        // this implementation here simply takes a dimmed average of the background LEDs
+
+        // i and j are the LED numbers where we take the average from. 
+        // this is a bit of bit operation magic to fulfill this mapping:
+        //  LED 7 takes the RGB average of LEDs 11 and 0
+        //  LED 6 takes the RGB average of LEDs 9 and 10
+        //  LED 5 takes the RGB average of LEDs 1 and 2
+        //  LED 4 takes the RGB average of LEDs 3 and 8
+        int j = ( (~b)<<3 | ((( (b>>1) ^ b )&1)<<1) )&0x0F;
+        int i = ( (~j & ~0x0C) | ((b<<2) & 0x08) )&0x0F;
+        
+        // this calculates the average of two LEDs, dims it and puts it out to the "track LEDs"
+        // remember, ">> 1" (shift bitfield right) equals "divide by 2", ">> 2" = "divide by 4", ...
+        leds[b].r = (leds[i].r + leds[j].r) >> 3;
+        leds[b].g = (leds[i].g + leds[j].g) >> 3;
+        leds[b].b = (leds[i].b + leds[j].b) >> 3;
+      } else {
+        // tracks lights off
+        leds[b] = CRGB(0,0,0);      
+      }
     }
   }
 }
