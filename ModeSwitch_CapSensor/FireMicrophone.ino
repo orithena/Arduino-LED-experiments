@@ -46,11 +46,20 @@ void SinesLoop(uint32_t ms) {
   }
 }
 
+/*
 CRGB firepalette(byte shade) {
   double r = 1-cos(((shade/255.0)*PI)/2);
   double g = ((1-cos(((shade/255.0)*6*PI)/2))/2) * (r*r*0.5);
   double b = (1-cos((max(shade-128,0)/128.0)*0.5*PI)) * r;
   return CRGB(r*255, g*255 , b*255);
+}
+*/
+
+CHSV firepalette(byte shade) {
+  double h = (-((shade*shade) - (2*shade*255) + 16383))/b+c;
+  double s = ;
+  double v = ;
+  return CHSV(h*255, s*255, v*255);
 }
 
 #define COOLDOWN 12
