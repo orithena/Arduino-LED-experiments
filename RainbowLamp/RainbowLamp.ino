@@ -32,7 +32,7 @@
 //#define DEBUG
 
 // Choose your remote
-//#define CHEAP_REMOTE
+//#define CHEAP_STANDARD_CHINA_REMOTE
 #define MCL_REMOTE
 
 // Global Variables for the buttons
@@ -249,7 +249,7 @@ boolean interpret_IR(State* state) {
     dumpInfo(&ir_results);
     #endif
 
-    #ifdef CHEAP_REMOTE
+    #ifdef CHEAP_STANDARD_CHINA_REMOTE
     if( ir_results.decode_type == NEC ) {
       switch( ir_results.value ) {
         case 0x00F700FF:    // brightness up
