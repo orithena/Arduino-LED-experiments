@@ -7,6 +7,8 @@
 #define DATA_PIN 6
 #define BUTTON_PIN 8
 
+#define TEXT_STRING "GoA "
+
 // Define the array of leds
 CRGB real_leds[NUM_LEDS+ADD_LEDS];
 CRGB* leds = real_leds + ADD_LEDS;
@@ -607,7 +609,7 @@ void DrawText(char *text, int x) {
 
 void loop_Text(uint32_t ms) {
   Clear();
-  DrawText("PEACE ", ((ms >> 3) & 0x00000FFF) % 36);
+  DrawText(TEXT_STRING, ((ms >> 3) & 0x00000FFF) % 36);
 }
 
 boolean check_button() {

@@ -1,11 +1,12 @@
+#define FASTLED_ALLOW_INTERRUPTS 0
 #include "FastLED.h"
 
 // How many leds in your strip?
-#define NUM_LEDS 12
+#define NUM_LEDS 150
 // MAX_VAL/NUM_LEDS = 255/12.0s = 21.25
-#define STEP 21.25
+#define STEP 3.4
 // Where is the LED data line connected?
-#define DATA_PIN 2
+#define DATA_PIN 5
 #define BTN_0 5
 #define BTN_1 8
 #define BTN_2 10
@@ -38,16 +39,16 @@ int button_mode = 0;
 
 void setup() { 
   // Initialize the pins
-  pinMode(BTN_0, INPUT_PULLUP); 
-  pinMode(BTN_1, INPUT_PULLUP); 
-  pinMode(BTN_2, INPUT_PULLUP); 
-  pinMode(DATA_PIN, OUTPUT); 
+  //pinMode(BTN_0, INPUT_PULLUP); 
+  //pinMode(BTN_1, INPUT_PULLUP); 
+  //pinMode(BTN_2, INPUT_PULLUP); 
+  //pinMode(DATA_PIN, OUTPUT); 
   
   // initialize LED library... well I needed to patch it a bit, cause APA106 LEDs weren't supported
   // this goes to chipset.h to the correct place:
   // template <uint8_t DATA_PIN, EOrder RGB_ORDER = RGB>
   // class APA106Controller800Khz : public ClocklessController<DATA_PIN, NS(330), NS(520), NS(280), RGB_ORDER> {}; 
-  FastLED.addLeds<APA106, DATA_PIN, RGB>(leds, NUM_LEDS);
+  FastLED.addLeds<WS2812B, DATA_PIN, RGB>(leds, NUM_LEDS);
   FastLED.setBrightness(255);
 }
 

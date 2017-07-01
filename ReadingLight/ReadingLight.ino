@@ -17,12 +17,12 @@
 #define P_SAT_DOWN 3
 #define P_VAL_DOWN 2
 
-#define MODE_COUNT 7
+#define MODE_COUNT 4
 
 // Define the array of leds
 CRGB leds[NUM_LEDS];
 
-byte mode = 0, variance = 255, hue = 0, sat = 255, val = 255, power = 1;
+byte mode = 0, variance = 128, hue = 0, sat = 255, val = 255, power = 1;
 uint32_t last_mode_press = 0;
 uint32_t last_button_press = 0;
 
@@ -53,6 +53,7 @@ void loop() {
     if( mode == 0 ) {
       computed_hue = hue + (byte)(variance * cos(rad));
     }
+    /*
     if( mode == 1 || mode == 3 ) {
       computed_sat = (byte)((double)sat * (1.0 - (variance/255.0) * (( cos(rad) + 1.0) * 0.5) ) );
     }
@@ -62,13 +63,14 @@ void loop() {
     if( mode == 3 ) {
       computed_hue = hue + (i*(255/(NUM_LEDS-1)));
     }
-    if( mode == 4 ) {
+    */
+    if( mode == 1 ) {
       computed_hue = hue + offset + (i*(255/(NUM_LEDS-1)));
     }
-    if( mode == 5 ) {
+    if( mode == 2 ) {
       computed_hue = hue + offset + (i*93);
     }
-    if( mode == 6 ) {
+    if( mode == 3 ) {
       uint32_t time = ((ms - last_mode_press) >> 10) * 0.9375;
       uint32_t p1 = variance*14.116, 
                p2 = p1+60+(variance*2), 
