@@ -1,6 +1,8 @@
 int old = 0;
 int delta = 0;
 
+ADC_MODE(ADC_TOUT);
+
 void loop() {
   int cur = analogRead(A0);
   delta = cur - old;
@@ -18,6 +20,7 @@ void loop() {
     Serial.println();
   }
   old = cur;
+  delay(10);
 }
 
 void setup() {

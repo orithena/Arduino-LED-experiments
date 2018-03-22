@@ -18,7 +18,7 @@ FASTLED_USING_NAMESPACE
 #define DATA_PIN 6
 #define BUTTON_PIN 8
 
-#define TEXT_STRING "GOA "
+#define TEXT_STRING "MIA "
 
 // Define the array of leds
 CRGB real_leds[NUM_LEDS+ADD_LEDS];
@@ -49,9 +49,9 @@ SimplePatternList patterns = {
   loop_Heart,
   loop_RGB_sawtooth, 
   loop_Rainbow, 
-  loop_RGBBlink, 
+//  loop_RGBBlink, 
   loop_Rainbow_Inc,  
-  loop_Red,
+//  loop_Red,
   loop_Stars 
 };
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))

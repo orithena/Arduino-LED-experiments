@@ -199,7 +199,14 @@ boolean interpret_Buttons(State* state) {
   boolean something_was_pressed = false;
 
   if( bright_btn.check() == ON ) {
-    state->bright = (state->bright + 1) % 5;
+    if( power_state == false ) {
+      power_state = true;
+      if( state->bright == 0 ) {
+        state->bright = 1;
+      }
+    } else {
+      state->bright = (state->bright + 1) % 5;
+    }
     last_user_interaction = millis();
     something_was_pressed = true;
     #ifdef DEBUG
@@ -209,7 +216,11 @@ boolean interpret_Buttons(State* state) {
   }
 
   if( mode_btn.check() == ON ) {
-    state->mode = (state->mode + 1) % MODE_NUM;
+    if( power_state ) {
+      state->mode = (state->mode + 1) % MODE_NUM;
+    } else {
+      power_state = true;
+    }
     last_user_interaction = millis();
     something_was_pressed = true;
     #ifdef DEBUG
@@ -219,13 +230,15 @@ boolean interpret_Buttons(State* state) {
   }
 
   if( speed_btn.check() == ON ) {
-    if( state->mode < STATIC_MODE_MIN ) {
-      // in animated modes, this button changes speed.
-      state->spd = (state->spd + 1) % SPEED_STEPS;
-    } else {
-      // in static modes, this button changes color.
-      // this formula makes sure that the colors are set to a multiple of COLOR_INC while increasing the hue by color_inc
-      state->col = (byte)((state->col - (state->col % COLOR_INC) + COLOR_INC) % (256 - (256 % COLOR_INC)));
+    if( power_state ) {
+      if( state->mode < STATIC_MODE_MIN ) {
+        // in animated modes, this button changes speed.
+        state->spd = (state->spd + 1) % SPEED_STEPS;
+      } else {
+        // in static modes, this button changes color.
+        // this formula makes sure that the colors are set to a multiple of COLOR_INC while increasing the hue by color_inc
+        state->col = (byte)((state->col - (state->col % COLOR_INC) + COLOR_INC) % (256 - (256 % COLOR_INC)));
+      }
     }
     last_user_interaction = millis();
     something_was_pressed = true;
