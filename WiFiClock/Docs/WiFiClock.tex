@@ -1,0 +1,208 @@
+\documentclass[a4paper,10pt,twocolumn]{article}
+
+%\usepackage{xltxtra}
+\usepackage{longtable}
+\usepackage[utf8]{inputenc}
+
+%\setromanfont[Mapping=tex-text]{Linux Libertine O}
+%\setsansfont[Mapping=tex-text]{DejaVu Sans}
+% \setmonofont[Mapping=tex-text]{DejaVu Sans Mono}
+\columnsep3em
+
+\title{WiFi-LED-Clock}
+\author{Dave (dave@kliczbor.de)}
+\date{2018-03-02}
+
+\begin{document}
+\maketitle
+ 
+\section{Description}
+You have in your hands one of the most unique clocks on the market today. With it's
+classic, ticking, analogue clockwork and futuristic, silent, colorful, digital Light 
+Emitting Diodes it surely would give your kitchen an eyecatcher people will talk about.
+
+Don't use it in your bedroom though, its ticking is too loud and the lights will 
+interrupt a good nights sleep. It could, however, double as a nightlight in the corridor
+between your bedroom and the bathroom.
+
+We removed the need for batteries from this cheap IKEA clock. Which, by the way, isn't sold
+anymore by IKEA, but old stock is already sold at over ten times the old price on the market.
+You see, you've got a real collectors item here.
+
+This clock comes with a 5 volt power supply to drive both the LEDs and the clock itself.
+It needs to connect to your WiFi network to get the time from a time server, so that the light
+patterns change according to the time of day. Some modes even dim the light at night. It is
+important to note here that the analog clockwork is not set digitally, you will need to 
+do that manually. Also, the digital part is programmed to follow the timezone ``Europe/Berlin''
+according to the rules active in 2017. If germany ever moves to abolish daylight savings time,
+this clock needs to be reprogrammed.
+
+\section{Setting it up}
+
+The power supply goes into a wall socket. Duh.
+
+After the clock is powered on, it checks whether the stored 
+WiFi credentials are still valid. As long as WiFi is not connected, 
+the clock shows a solid red.
+
+If this is not the case, it goes into access point mode, opening a WiFi with the name 
+``ClockSetup''. Use your smartphone to connect to it. You should be presented with a
+dialog to connect to the network, like when you try to access a public WiFi and first have
+to accept the Allgemeine Geschäftsbedingungen. But there is no legal mumbo-jumbo to accept; 
+instead, you could scan for your WiFi network and enter the pre-shared key (also known 
+as ``PSK'' or ``WiFi password'').
+
+If this for some reason does not work, try to set up the WiFi connection on your phone or laptop using the following
+data:
+
+\begin{tabular}[h]{ll}
+SSID & ClockSetup \\
+Static IPv4 address & 192.168.4.4 \\
+Subnet mask & 255.255.255.0 \\
+Gateway & 192.168.4.1 
+\end{tabular}
+
+Then, point your web browser at http://192.168.4.1/, enter the credentials 
+of your WiFi network and you're good to go.
+
+Note that the clock will open that setup portal iff
+
+\begin{enumerate}
+ \item it is powered on (or the chip is resetted)
+ \item and it cannot connect to the WiFi network previously configured.
+\end{enumerate}
+
+As soon as the WiFi is successfully connected, the clock shows a solid blue. When it
+successfully resolved the IP address of a time server, it displays a solid green until
+the time server answers with the current time. Then the clock enters the default mode
+(see section \ref{mode}).
+
+You also will need to set the clock hands position using the dial on the backside 
+of the clockwork. It is not advisable to try and synchronize the seconds hand with the 
+digital LED display, because they will likely to be out of whack after a few weeks \dots{} and
+anyway, the seconds are hardly noticeable in the LED display, unless you know that red
+corresponds to zero in the HSV color model.
+
+But if you achieve that, we applaud you!
+
+\section{Hang it up!}
+\label{hangup}
+We included a hook and two nails (in case you hit the first nail wrong) to hang the clock up 
+on your wall. We trust you to find a good spot for it and we also trust that you check the
+wall for hidden cables and pipes before not hitting yourself on your own fingers with a 
+hammer. Which, by the way, you have to provide. Because we don't. Sorry.
+
+You might notice that it might wobble a bit on the wall. This is partly intentional. You 
+see, there is a button on the backside to switch modes and its position is determined in
+a way that you are able to press the front of the clock to push said button against the wall
+and thereby switching modes. 
+
+However, you may turn the fake battery the button is 
+resting on by a few degrees to let the button sink more into the case. This might mean that 
+you'd have to take the clock off the wall to switch modes. Your choice.
+
+\section{Mode setting}
+\label{mode}
+
+As we already told you in section \ref{hangup} how to press the mode button, you might be 
+curious about its function. You see, no customer is alike, and we strive to accomodate a
+wide range of tastes. But, as we like rainbows, all modes are somehow connected to rainbows.
+Sorry if that does not fit your taste. Try mode 10 or 11, they feature the least noticeable 
+rainbow.
+
+Okay, by pressing the button, you choose the next mode. One of the twelve LEDs lights up white
+for a moment to show you which mode is currently active.
+
+After powering on, mode 0 is active. Sorry, I mean mode 12. It's mode 12 because of the 
+12-hour clock system. And simultaneously 0, because of the 24-hour system. 
+Does that even make sense what I'm talking here? Anyway, it's 12, because the top center 
+LED is assigned to it when choosing modes. Also, it's 0, because the LEDs are controlled
+internally using a modulo 12 ring.
+
+\begin{description}%
+\setlength\itemsep{0pt}%
+\item[0/12] Medium bright rainbow ticking with the seconds around the clock, hour and minute hands highlighted with red 
+	and blue, brightness dimming at night.
+\item[1]    Medium bright rainbow ticking around the clock, hour and minute hands highlighted with red 
+	and blue, constant brightness.
+\item[2]    Constantly full bright rainbow ticking around the clock, hour and minute hands falling into
+        shadow.
+\item[3]    A bright rainbow ticking around the clock, dimmed at night.
+\item[4]    A constantly medium bright rainbow ticking around the clock.
+\item[5]    A constantly full bright rainbow ticking around the clock.
+\item[6]    A bright rainbow ticking fast around the clock, dimmed at night.
+\item[7]    Medium bright rainbow ticking fast around the clock, hour and minute hands highlighted with red 
+	and blue, constant brightness.
+\item[8]    A constantly full bright rainbow ticking around the clock, but slowly with the minutes.
+\item[9]    A bright rainbow ticking around the clock, but slowly with the minutes, dimmed at night.
+\item[10]   Solid color cycling through the rainbow, changing with every second, dimmed at night.
+\item[11]   Solid color cycling through the rainbow, changing with every second, full brightness.
+\end{description}
+
+
+\section{Changing the background}
+
+The background is just a paper circle with a diameter of 185 millimeters. Use the 
+graphics program of your choice to design it. We recommend Inkscape, although you likely will
+need to google the method to distribute 12 objects evenly spaced around a circle. 
+
+We think that a grayscale design looks better under the colored lights, but if you
+want a design that plays with being bathed in light of changing color, go for it!
+This can lead to some very interesting effects!
+
+Don't forget to mark a center and a cutting perimeter in your drawing.
+
+To swap it, you need to first power off the clock. Then you need to remove the front 
+pane of the clock. Locate the three nubs on the 
+backside of the clock poking out of the perimeter and push them in using e.g. a flat screwdriver.
+
+Be very careful not to damage the copper wires between the LEDs in the process! 
+
+Use the same screwdriver to push the pane further out the front, then pull the pane off from 
+the front using your fingers.
+
+Remove the three clock hands by tentatively pulling them off. Change the background paper.
+Don't put the new one on top of the old one, this might be getting too thick and/or wavy
+and the hour hand should never scrape on the paper!
+
+If in doubt, use some bits of double sided tape to fix the new background to the case.
+
+Reattach the three clock hands by putting them all in the 12 o'clock position, else the 
+hours hand might seem to be off after you adjust the clock. Squeeze the front pane in so 
+that the nubs align to their slot in the case, then push the whole front pane back into 
+its place.
+
+Double check that the paper does not billow up by the pressure of the pane on its perimeter
+and hinder the natural way of the hours hand. If in doubt, remove the front pane again and
+use more double-sided tape \dots{} or find a way to push the pane back in without the paper
+billowing up. The latter is not easy, but in most cases possible. That much we can tell 
+you from our own experience.
+
+\section{Firmware upgrade}
+If, for some reason, a firmware upgrade is needed, it is administered through the micro 
+USB port on the back side of the clock. 
+
+Right next to that port, by the way, is a small
+hole to access the reset button, which you will not need unless you choose to hack around
+with the clocks firmware yourself. Do ask for our source code, we will happily provide it
+along with some pointers on how to get started using the Arduino IDE.
+
+Here's the basic data: The chip is an ESP8266 on a WeMos D1 mini board with a CH340G
+USB-to-Serial converter to program it. The LEDs are 
+of the type ``WS2812b'' in GRB color byte order, connected to pin D4. LED 0 is on the 
+clocks position 11, counting anticlockwise; the function to calculate from the intuitive
+position number (a.k.a. hours) to the actual led number is 
+$$lednumber(h) = 11 - (h \bmod 12)$$
+with $h$ being the ``intuitive'' hour position.
+
+The mode button is active low, connected to pin D3 with an internal pull-up resistor.
+
+\section{Summary}
+Are you happy with your new clock? Then tell your friends that they have no chance of getting 
+the same clock, unless they somehow manage to lay their hands on such a fine collectors 
+item named RIBBA.
+
+Even then, they'll have to ask us for the source code and shopping list --- and they'll need a 
+steady hand to solder it.
+
+\end{document}
