@@ -88,17 +88,20 @@ void setup() {
 
   // set master brightness control (will be overwritten as soon as a time server did answer)
   FastLED.setBrightness(MIN_BRIGHTNESS);
+
+  testMatrix();
 }
 
 /*** Pattern selection ***/
 
 // List of patterns to cycle through.  Each is defined as a separate function below.
 typedef void (*SimplePatternList[])();
-SimplePatternList gPatterns = { sinefield, sinematrix, sinematrix2, sinematrix3, sinematrix_rgb, affine_fields, gol_loop };
+//SimplePatternList gPatterns = { sinefield, sinematrix, sinematrix2, sinematrix3, sinematrix_rgb, affine_fields, gol_loop };
+SimplePatternList gPatterns = { sinefield, sinematrix3, sinematrix_rgb, affine_fields, affine_shadows, gol_loop };
 //SimplePatternList gPatterns = { affine_fields };
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
-#define PATTERN_SECONDS 60        // how long a pattern is shown in seconds
+#define PATTERN_SECONDS 90        // how long a pattern is shown in seconds
 
 /*** central loop ***/
   
@@ -125,6 +128,7 @@ void nextPattern()
 {
   // add one to the current pattern number, and wrap around at the end
   gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE( gPatterns);
+  Serial.printf("Setting pattern: %d\n", gCurrentPatternNumber);
 }
 
 /*** Brightness Control function ***/

@@ -1,5 +1,7 @@
 /*** Linear Algebra math functions needed for projection ***/
 
+#include <stdarg.h>
+
 typedef struct Vector {
   double x1;
   double x2;
@@ -31,11 +33,15 @@ typedef struct AMatrix {
 } AMatrix;
 
 void printMatrix(struct AMatrix m) {
-  Serial.printf("+----------------------------+\n");
-  Serial.printf("| %3.4f\t%3.4f\t%3.4f |\n", m.a11, m.a12, m.a13);
-  Serial.printf("| %3.4f\t%3.4f\t%3.4f |\n", m.a21, m.a22, m.a23);
-  Serial.printf("| %3.4f\t%3.4f\t%3.4f |\n", m.a31, m.a32, m.a33);
-  Serial.printf("+----------------------------+\n");
+  Serial.printf("+------------------------------+\n");
+  Serial.printf("| %8.4f  %8.4f  %8.4f |\n", m.a11, m.a12, m.a13);
+  Serial.printf("| %8.4f  %8.4f  %8.4f |\n", m.a21, m.a22, m.a23);
+  Serial.printf("| %8.4f  %8.4f  %8.4f |\n", m.a31, m.a32, m.a33);
+  Serial.printf("+------------------------------+\n");
+}
+
+void printVector(struct Vector v) {
+  Serial.printf("(%8.4f, %8.4f)\n", v.x1, v.x2);
 }
 
 struct Matrix multiply(struct Matrix m1, struct Matrix m2) {
@@ -64,6 +70,35 @@ struct AMatrix multiply(struct AMatrix m1, struct AMatrix m2) {
     };
   return r;
 };
+
+struct AMatrix identity() {
+  AMatrix r = {
+    .a11 = 1,
+    .a12 = 0,
+    .a13 = 0,
+    .a21 = 0,
+    .a22 = 1,
+    .a23 = 0,
+    .a31 = 0,
+    .a32 = 0,
+    .a33 = 1
+  };
+  return r;
+}
+
+struct AMatrix compose(int n, ...) {
+  va_list valist;
+  va_start(valist, n);
+  
+  AMatrix r = identity();
+  for (int i = 0; i < n; i++) {
+    AMatrix x = va_arg(valist, struct AMatrix);
+    r = multiply(r,x);
+  }
+  
+  va_end(valist);
+  return r;
+}
 
 struct AMatrix rotation(double angle) {
   AMatrix r = {
@@ -205,4 +240,31 @@ inline double addmodpi(double x, double delta) {
   return addmod(x, 2*PI, delta);
 }
 
+void testMatrix() {
+  Vector v = {.x1 = 0, .x2 = 0};
+  AMatrix m = compose( 3,
+    rotation(PI/2.0),
+    translation(10,0),
+    translation(10,0)
+  );
+  printMatrix(m);
+  Vector v1 = multiply(m, v); 
+  printVector(v1);
+  m = compose( 3,
+    translation(10,0),
+    rotation(PI/2.0),
+    translation(10,0)
+  );
+  printMatrix(m);
+  Vector v2 = multiply(m, v); 
+  printVector(v2);
+  m = compose( 3,
+    translation(10,0),
+    translation(10,0),
+    rotation(PI/2.0)
+  );
+  printMatrix(m);
+  Vector v3 = multiply(m, v); 
+  printVector(v3);
+}
 
