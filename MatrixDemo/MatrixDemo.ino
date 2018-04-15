@@ -97,8 +97,8 @@ void setup() {
 // List of patterns to cycle through.  Each is defined as a separate function below.
 typedef void (*SimplePatternList[])();
 //SimplePatternList gPatterns = { sinefield, sinematrix, sinematrix2, sinematrix3, sinematrix_rgb, affine_fields, gol_loop };
-SimplePatternList gPatterns = { sinefield, sinematrix3, sinematrix_rgb, affine_fields, affine_shadows, gol_loop };
-//SimplePatternList gPatterns = { affine_fields };
+//SimplePatternList gPatterns = { sinefield, affine_shadows2, sinematrix3, sinematrix_rgb, affine_fields, affine_shadows, gol_loop };
+//SimplePatternList gPatterns = { affine_shadows2 };
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 #define PATTERN_SECONDS 90        // how long a pattern is shown in seconds

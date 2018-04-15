@@ -48,6 +48,7 @@ inline double _abs(double x) {
     return x;
   }
 }
+
 void affine_shadows() {
   increment_runvars();
   AMatrix m = compose( 8,
@@ -66,6 +67,38 @@ void affine_shadows() {
       double sc = sinecircle3D(v.x1, v.x2);
       double color = runvar[0] + cos(runvar[1]) + (sc * 0.5);
       leds[(y*kMatrixWidth) + x] = CHSV( color*255, 255, _abs(sc)*255 );
+    }
+  }
+}
+
+inline double square(double x) {
+  return x*x;
+}
+
+inline double sinestuff(double x, double y) {
+  //return ( cos(runvar[11]+x) * sin(runvar[11]+y) * cos(runvar[10] + sqrt((x*x) + (y*y))) ); // too similar to sinecircle3D
+  //return ( cos(x) * sin(y) * cos(sqrt(square(x+sin(runvar[10]) + square(y+cos(runvar[11]))))) ); // too small ripples => pixel flashing
+  return ( cos(runvar[11]+x) * sin(runvar[11]+y) * cos((kMatrixWidth*0.5*sin(runvar[10])) + sqrt(square(x) + square(y))) );
+}
+
+void affine_shadows2() {
+  increment_runvars();
+  AMatrix m = compose( 8,
+                rotation(cos(runvar[12]) * PI),
+                translation(cos(runvar[2])*kMatrixWidth*0.125, sin(runvar[3])*kMatrixHeight*0.125),
+                rotation(runvar[13]),
+                translation(sin(runvar[4])*kMatrixWidth*0.25, cos(runvar[5])*kMatrixHeight*0.25),
+                rotation(sin(runvar[14]) * PI),
+                translation(sin(runvar[6])*kMatrixWidth*0.125, cos(runvar[7])*kMatrixHeight*0.125),
+                rotation(runvar[15]),
+                scale(0.25+sin(runvar[8])/6.0, 0.5+cos(runvar[9])/6.0) 
+              );
+  for( int x = 0; x < kMatrixWidth; x++ ) {
+    for( int y = 0; y < kMatrixHeight; y++ ) {
+      Vector v = multiply(m, vector(x-(kMatrixWidth/2), y-(kMatrixWidth/2)));
+      double sc = sinestuff(v.x1, v.x2);
+      double color = runvar[0] + cos(runvar[1]) + (sc * 0.5);
+      leds[(y*kMatrixWidth) + x] = CHSV( color*255, 255, min(255,(int)(_abs(sc)*512)) );
     }
   }
 }
