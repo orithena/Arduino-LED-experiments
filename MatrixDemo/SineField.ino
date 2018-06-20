@@ -10,7 +10,7 @@ void sinefield() {
     hue = step + (37 * sin( ((y*step)/(kMatrixHeight*PI)) * 0.04 ) );
     for( byte x = 0; x < kMatrixWidth; x++ ) {
       hue += 17 * sin(x/(kMatrixWidth*PI));
-      leds[ (x*kMatrixHeight) + y ] = CHSV(hue + ((unsigned long)step & 0x000000FF), 192 - (63*cos((hue+step)*PI*0.004145)), 255*sin((hue+step)*PI*0.003891));
+      leds[ (x*kMatrixWidth) + y ] = CHSV(hue + ((unsigned long)step & 0x000000FF), 192 - (63*cos((hue+step)*PI*0.004145)), 255*sin((hue+step)*PI*0.003891));
     }
   }
 }
