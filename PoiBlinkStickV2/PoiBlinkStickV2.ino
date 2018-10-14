@@ -18,7 +18,7 @@ FASTLED_USING_NAMESPACE
 #define DATA_PIN 6
 #define BUTTON_PIN 8
 
-#define TEXT_STRING "MIA "
+#define TEXT_STRING "FNORD"
 
 // Define the array of leds
 CRGB real_leds[NUM_LEDS+ADD_LEDS];
@@ -31,6 +31,7 @@ byte tcol = 1;
 
 void setup() { 
   // Initialize the LEDs
+  Serial.begin(230400);
   pinMode(DATA_PIN, OUTPUT); 
   pinMode(BUTTON_PIN, INPUT_PULLUP); 
   FastLED.addLeds<APA106, DATA_PIN, RGB>(real_leds, NUM_LEDS+ADD_LEDS);
@@ -42,8 +43,9 @@ typedef void (*SimplePatternList[])(uint32_t ms);
 SimplePatternList patterns = { 
   loop_demo,
   loop_Stars2, 
-  loop_Text,
+//  loop_Text,
   loop_RainbowSpiral,
+  loop_RainbowSpiral2,
   loop_Pacman, 
   loop_Pong,
   loop_Heart,
@@ -108,6 +110,22 @@ void loop_RainbowSpiral(uint32_t ms) {
   base_Color(CRGB(0,0,255));
 }
 
+CRGB rainbowpalette2(byte col) {
+  byte c = col % 12;
+  byte c2 = c>>1;
+  byte r = 255*(c2>2)*(c&0x01);
+  byte g = 255*(((c2+5)%6)<3)*(c&0x01);
+  byte b = 255*(((c2+1)%6)<3)*(c&0x01);
+  return CRGB(r,g,b);
+}
+
+void loop_RainbowSpiral2(uint32_t ms) {
+  for( byte i = 0; i < NUM_LEDS; i++ ) {
+    leds[NUM_LEDS-1-i] = rainbowpalette2((byte)(ms>>5) + ((i + ((byte)(ms>>4) & 0x01))>>1));
+  }
+  base_Color(CRGB(0,0,255));
+}
+
 void loop_Stars(uint32_t ms) {
   int r = random(NUM_LEDS);
   for( int i = 0; i < NUM_LEDS; i++ ) {
@@ -120,6 +138,8 @@ void loop_Stars(uint32_t ms) {
 void loop_Stars2(uint32_t ms) {
   fadeToBlackBy( leds, NUM_LEDS, 10 );
   int r = random(NUM_LEDS);
+  leds[r] = CHSV(random(255), 255, 255);
+  r = random(NUM_LEDS);
   leds[r] = CHSV(random(255), 255, 255);
   delay(20);
   base_Color(CRGB(255,255,255));
