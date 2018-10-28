@@ -1,7 +1,8 @@
 #include <Arduino.h>
 #include <SNESpaduino.h>
 
-#define PRELLBOCKZEIT        75            // buttons cannot be counted as pressed twice in this time frame  
+#define PRELLBOCKZEIT        50            // buttons cannot be counted as pressed twice in this time frame  
+#define WIEDERHOLUNGSZEIT   125
 
 #define SLOW_MOVE_TIME  1500
 #define SLOW_MOVE_STEP   150
@@ -293,7 +294,8 @@ void display(int board_offset) {
         leds[ XYsafe(x,y) ] = CHSV(0,0,0);
       }
       else {
-        leds[ XYsafe(x,y) ] = CHSV(170-(((y+board_offset)*170)/kBoardHeight), 255, 32 + (((y+board_offset)%5)*8) );
+        //leds[ XYsafe(x,y) ] = CHSV(170-(((y+board_offset)*170)/kBoardHeight), 255, 32 + (((y+board_offset)%5)*8) );
+        leds[ XYsafe(x,y) ] = CHSV(0, 255, 32 );
       }
     }
   }
@@ -317,28 +319,29 @@ uint32_t last_down = 0;
 uint32_t last_A = 0;
 uint32_t last_B = 0;
 bool pull_down = false;
+uint16_t last_btns = 0;
 
 void readController() {
   uint32_t ms = millis();
 
   uint16_t btns = (pad.getButtons(true) & 0b0000111111111111);
   
-  if( btns & BTN_RIGHT && ms - last_right > PRELLBOCKZEIT ) {
-    hpos = _min(hpos + 1, kBoardWidth);
+  if( btns & BTN_RIGHT && (((last_btns & BTN_RIGHT) == 0 && ms - last_right > PRELLBOCKZEIT) || ms - last_right > WIEDERHOLUNGSZEIT) ) {
+    if( hpos < kBoardWidth - 1 ) hpos++;
     last_right = ms;
     Serial.println("RIGHT");
   }
-  if( btns & BTN_LEFT && ms - last_left > PRELLBOCKZEIT ) {
-    hpos = _max(hpos - 1, 0);
+  if( btns & BTN_LEFT && (((last_btns & BTN_LEFT) == 0 && ms - last_left > PRELLBOCKZEIT) || ms - last_left > WIEDERHOLUNGSZEIT) ) {
+    if( hpos > 0 ) hpos--;
     last_left = ms;
     Serial.println("LEFT");
   }
-  if( btns & BTN_B && ms - last_B > PRELLBOCKZEIT ) {
+  if( btns & BTN_B && (((last_btns & BTN_B) == 0 && ms - last_B > PRELLBOCKZEIT) || ms - last_B > WIEDERHOLUNGSZEIT) ) {
     rotate(true);
     last_B = ms;
     Serial.println("Button B");
   }
-  if( btns & BTN_A && ms - last_A > PRELLBOCKZEIT ) {
+  if( btns & BTN_A && (((last_btns & BTN_A) == 0 && ms - last_A > PRELLBOCKZEIT) || ms - last_A > WIEDERHOLUNGSZEIT) ) {
     rotate(false);
     last_A = ms;
     Serial.println("Button A");
@@ -348,6 +351,7 @@ void readController() {
     Serial.println("Start");
   }
   pull_down = (btns & BTN_DOWN);
+  last_btns = btns;
 }
 
 int index_tr(int idx, int highest) {

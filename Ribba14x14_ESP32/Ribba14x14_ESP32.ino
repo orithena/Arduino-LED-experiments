@@ -77,11 +77,11 @@ SNESpaduino pad(PAD_LATCH, PAD_CLOCK, PAD_DATA);
 #define T_BL 2
 #define T_BM 3
 #define T_BR 4
-NoiselessTouchESP32 t_l(T_LEFT,     6, 2);
-NoiselessTouchESP32 t_r(T_RIGHT,    6, 2);
-NoiselessTouchESP32 t_bl(T_BLEFT,   6, 2);
-NoiselessTouchESP32 t_bm(T_BMIDDLE, 6, 2);
-NoiselessTouchESP32 t_br(T_BRIGHT,  6, 2);
+NoiselessTouchESP32 t_l(T_LEFT,     12, 4);
+NoiselessTouchESP32 t_r(T_RIGHT,    12, 4);
+NoiselessTouchESP32 t_bl(T_BLEFT,   12, 3);
+NoiselessTouchESP32 t_bm(T_BMIDDLE, 12, 3);
+NoiselessTouchESP32 t_br(T_BRIGHT,  12, 3);
 NoiselessTouchESP32* touch[5] = { &t_l, &t_r, &t_bl, &t_bm, &t_br };
 
 void setup() {
@@ -97,7 +97,9 @@ void setup() {
   //FastLED.addLeds<LED_TYPE,DATA_PIN,CLK_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
 
   // set master brightness control
-  FastLED.setBrightness(MIN_BRIGHTNESS);
+  cur = get_current_time();
+  FastLED.setBrightness(daytimebrightness(hour(cur), minute(cur)));
+
   //FastLED.setMaxPowerInVoltsAndMilliamps(5, MAX_POWER_MW);
   tetris_setup();
 }
@@ -116,15 +118,13 @@ uint8_t gHue = 0; // rotating "base color" used by many of the patterns
 const uint8_t kMatrixHeight = 14;
 const uint8_t kMatrixWidth = 14;
 
-#define DEMO_AFTER 3600000
+#define DEMO_AFTER 360000
 uint32_t last_manual_mode_change = -DEMO_AFTER;
   
 void loop()
 {
-  EVERY_N_SECONDS( 60 ) {
-    cur = get_current_time();
-    FastLED.setBrightness(daytimebrightness(hour(cur), minute(cur)));
-  }
+  cur = get_current_time();
+  FastLED.setBrightness(daytimebrightness(hour(cur), minute(cur)));
   EVERY_N_MILLISECONDS( 1000/FRAMES_PER_SECOND ) {
     // Call the current pattern function once, updating the 'leds' array
     gPatterns[gCurrentPatternNumber]();
@@ -160,6 +160,16 @@ void loop()
     nextPattern();
   }
 
+  EVERY_N_MILLISECONDS( 50 ) {
+    uint16_t btns = (pad.getButtons(true) & 0b0000111111111111);
+    if( btns & BTN_START ) {
+      tetris_demo_mode = false;
+      gCurrentPatternNumber = 3;
+    }
+    if( btns & BTN_SELECT ) {
+      tetris_demo_mode = true;
+    }
+  }
 
 //  for( int i = 0; i<5; i++ ) {
 //    Serial.printf("%02d\t", touch[i]->touched());
@@ -739,7 +749,7 @@ void GameOfLifeFader(int cstep) {
 }
 */
 #define SHOW_TEXT_DELAY 72
-#define SHOW_TEXT_COLOR CHSV(0, 0, 0)
+#define SHOW_TEXT_COLOR CHSV(170, 255, 255)
 
 static unsigned char Font5x7[] = {
   0x00, 0x00, 0x00, 0x00, 0x00,// (space)
