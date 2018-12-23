@@ -1,10 +1,10 @@
 #include <FastLED.h>
 
-#define LED_PIN  6
+#define LED_PIN  D3
 
 //#define DEBUG
-#define COLOR_ORDER RGB
-#define CHIPSET     WS2811
+#define COLOR_ORDER GRB
+#define CHIPSET     WS2812B
 
 #define BRIGHTNESS 255
 
@@ -247,9 +247,8 @@ void setup() {
   FastLED.addLeds<CHIPSET, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
   FastLED.setBrightness( BRIGHTNESS );
 #ifdef DEBUG
-  Serial.begin(115200);
+  Serial.begin(230400);
 #endif
-  randomSeed(analogRead(A5));
 }
 
 
