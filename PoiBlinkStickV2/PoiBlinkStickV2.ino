@@ -18,7 +18,7 @@ FASTLED_USING_NAMESPACE
 #define DATA_PIN 6
 #define BUTTON_PIN 8
 
-#define TEXT_STRING "FNORD"
+#define TEXT_STRING "PUN"
 
 // Define the array of leds
 CRGB real_leds[NUM_LEDS+ADD_LEDS];
@@ -43,7 +43,7 @@ typedef void (*SimplePatternList[])(uint32_t ms);
 SimplePatternList patterns = { 
   loop_demo,
   loop_Stars2, 
-//  loop_Text,
+  loop_Text,
   loop_RainbowSpiral,
   loop_RainbowSpiral2,
   loop_Pacman, 
