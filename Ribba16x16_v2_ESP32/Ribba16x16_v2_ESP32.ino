@@ -1,7 +1,7 @@
 //#define FASTLED_ALLOW_INTERRUPTS 0
-#include "FastLED.h"
-
+#include <FastLED.h>
 FASTLED_USING_NAMESPACE
+#include <LEDMatrix.h>
 
 #if defined(FASTLED_VERSION) && (FASTLED_VERSION < 3001000)
 #warning "Requires FastLED 3.1 or later; check github for latest code."
@@ -17,7 +17,10 @@ FASTLED_USING_NAMESPACE
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER GRB
 #define NUM_LEDS    256
-CRGB leds[NUM_LEDS];
+#define MATRIX_WIDTH 16
+#define MATRIX_HEIGHT 16
+//CRGB leds(NUM_LEDS);
+cLEDMatrix<MATRIX_WIDTH, MATRIX_HEIGHT, HORIZONTAL_ZIGZAG_MATRIX> leds;
 
 #define MIN_BRIGHTNESS         16
 #define MAX_BRIGHTNESS         255
@@ -25,20 +28,94 @@ CRGB leds[NUM_LEDS];
 #define FRAMES_PER_SECOND  50
 //#define DEBUG
 
+const uint8_t kMatrixHeight = 16;
+const uint8_t kMatrixWidth = 16;
+const bool kMatrixSerpentineLayout = false;
+
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 
+typedef struct IntMatrix {
+  int a11;
+  int a12;
+  int a21;
+  int a22;
+} IntMatrix;
+
+IntMatrix snake[] = {
+  { .a11 = kMatrixWidth*2/3, .a12 = kMatrixHeight*2/3, .a21 =  1,  .a22 =  0 },
+  { .a11 = kMatrixWidth/3,   .a12 = kMatrixHeight*2/3, .a21 =  0,  .a22 =  1 },
+  { .a11 = kMatrixWidth*2/3, .a12 = kMatrixHeight/3,   .a21 = -1,  .a22 =  0 },
+  { .a11 = kMatrixWidth/3,   .a12 = kMatrixHeight/3,   .a21 =  0,  .a22 = -1 },  
+  { .a11 = kMatrixWidth*2/3, .a12 = kMatrixHeight/2,   .a21 = -1,  .a22 =  0 },
+  { .a11 = kMatrixWidth/3,   .a12 = kMatrixHeight/1,   .a21 =  0,  .a22 = -1 }  
+};
+
+typedef struct Vector {
+  double x1;
+  double x2;
+} Vector;
+
+typedef struct Matrix {
+  double a11;
+  double a12;
+  double a21;
+  double a22;
+} Matrix;
+
+Matrix dsnake[] = {
+  { .a11 = kMatrixWidth*2/3, .a12 = kMatrixHeight*2/3, .a21 =  1,  .a22 =  0 },
+  { .a11 = kMatrixWidth/3,   .a12 = kMatrixHeight*2/3, .a21 =  0,  .a22 =  1 },
+  { .a11 = kMatrixWidth*2/3, .a12 = kMatrixHeight/3,   .a21 = -1,  .a22 =  0 },
+  { .a11 = kMatrixWidth/3,   .a12 = kMatrixHeight/3,   .a21 =  0,  .a22 = -1 },  
+  { .a11 = kMatrixWidth*2/3, .a12 = kMatrixHeight/2,   .a21 = -1,  .a22 =  0 },
+  { .a11 = kMatrixWidth/3,   .a12 = kMatrixHeight/1,   .a21 =  0,  .a22 = -1 }  
+};
 
 void setup() {
   //delay(3000); // 3 second delay for recovery
   Serial.begin(230400);
 
   // tell FastLED about the LED strip configuration
-  FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
+  FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds[0], leds.Size()).setCorrection(TypicalLEDStrip);
   //FastLED.addLeds<LED_TYPE,DATA_PIN,CLK_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
 
   //FastLED.setMaxPowerInVoltsAndMilliamps(5, MAX_POWER_MW);
-  FastLED.setBrightness(128);
+  FastLED.setBrightness(192);
   tetris_setup();
+
+  for( int i = 0; i<NUM_LEDS; i++) {
+    leds(i) = CHSV(i, 255, 255);
+  }
+  printmatrix();
+  fadeToBlackLog();
+  printmatrix();
+  fadeToBlackLog();
+  printmatrix();
+  fadeToBlackLog();
+  printmatrix();
+  fadeToBlackLog();
+  printmatrix();
+}
+
+void printmatrix() {
+  Serial.println();
+  for( int i = 0; i<NUM_LEDS; i++) {
+    Serial.printf("%4d ", leds(i).r);
+  }
+  Serial.println();
+  for( int i = 0; i<NUM_LEDS; i++) {
+    Serial.printf("%4d ", leds(i).g);
+  }
+  Serial.println();
+  for( int i = 0; i<NUM_LEDS; i++) {
+    Serial.printf("%4d ", leds(i).b);
+  }
+  Serial.println();
+  for( int i = 0; i<NUM_LEDS; i++) {
+    CHSV x = rgb2hsv_approximate(leds(i));
+    Serial.printf("%4d ", x.v);
+  }
+  Serial.println();
 }
 
 boolean tetris_demo_mode = true;
@@ -47,14 +124,13 @@ boolean tetris_demo_mode = true;
 typedef void (*SimplePatternList[])();
 //SimplePatternList gPatterns = { juggle, confetti, rainbow, rainbowWithGlitter, bpm };
 //SimplePatternList gPatterns = { stuff, juggle, sinefield, rainbow, bpm };
-//SimplePatternList gPatterns = { tetris_loop };
-SimplePatternList gPatterns = { tetris_loop, sinematrix3, gol_loop, sinefield, sinematrix };
+//SimplePatternList gPatterns = { snakes };
+//SimplePatternList gPatterns = { snakes, sinematrix4, sinefield, tetris_loop, sinematrix3, gol_loop, sinematrix };
+SimplePatternList gPatterns = { snakes, sinematrix4, sinefield, gol_loop };
 
-int8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
-uint8_t gHue = 0; // rotating "base color" used by many of the patterns
-const uint8_t kMatrixHeight = 16;
-const uint8_t kMatrixWidth = 16;
-const bool kMatrixSerpentineLayout = true;
+int8_t gCurrentPatternNumber = 0;  // Index number of which pattern is current
+uint8_t gHue[] = { 0, 0, 0, 0 };   // rotating "base color" used by many of the patterns
+
 
 #define DEMO_AFTER 360000
 uint32_t last_manual_mode_change = -DEMO_AFTER;
@@ -70,7 +146,16 @@ void loop()
   }
   // do some periodic updates
   EVERY_N_MILLISECONDS( 20 ) { 
-    gHue++;
+    gHue[0]++;
+  } 
+  EVERY_N_MILLISECONDS( 60 ) { 
+    gHue[1]++;
+  } 
+  EVERY_N_MILLISECONDS( 180 ) { 
+    gHue[2]++;
+  } 
+  EVERY_N_MILLISECONDS( 540 ) { 
+    gHue[3]++;
   } 
   EVERY_N_SECONDS( 40 ) { 
     if( tetris_demo_mode && millis() - last_manual_mode_change > DEMO_AFTER ) {
@@ -92,17 +177,110 @@ void lastPattern()
   if( gCurrentPatternNumber < 0 ) gCurrentPatternNumber += ARRAY_SIZE(gPatterns);
 }
 
-typedef struct Vector {
-  double x1;
-  double x2;
-} Vector;
+bool is_empty(int x, int y) {
+  if( x < 0 || x >= kMatrixWidth || y < 0 || y >= kMatrixHeight ) {
+    return false;
+  }
+  return ( leds(x,y).r == 0 && leds(x,y).g == 0 && leds(x,y).b == 0 );
+}
 
-typedef struct Matrix {
-  double a11;
-  double a12;
-  double a21;
-  double a22;
-} Matrix;
+bool move_snake_if_empty(int i, int dx, int dy) {
+  int n1 = snake[i].a11 + dx;
+  int n2 = snake[i].a12 + dy;
+  if( is_empty(n1, n2) ) {
+    snake[i].a11 = n1;
+    snake[i].a12 = n2;
+    return true;
+  } else {
+    return false;
+  }
+}
+
+void rotate_snake(int i) {
+  int t = snake[i].a22;
+  snake[i].a22 = snake[i].a21;
+  snake[i].a21 = t;
+  if( random(2) == 0 ) {
+    snake[i].a21 *= (-1);
+    snake[i].a22 *= (-1);
+  }
+}
+
+void print_snakes() {
+  for( int i = 0; i < ARRAY_SIZE(snake); i++ ) {
+    Serial.printf("%d: .a11=%2d  .a12=%2d  .a21=%2d  .a22=%2d\n", i, snake[i].a11, snake[i].a12, snake[i].a21, snake[i].a22); 
+  }
+  Serial.println();
+}
+
+void snakes() {
+  //print_snakes();
+  //fadeToBlackBy( leds, NUM_LEDS, 8);
+  fadeToBlackLog();
+  //fadeBlur();
+  EVERY_N_MILLISECONDS(100) {
+    for( int i; i < ARRAY_SIZE(snake); i++ ) {
+      bool has_moved = false;
+      int attempts = 0;
+      while( !has_moved && attempts < 8 ) {
+        has_moved = move_snake_if_empty(i, snake[i].a21, snake[i].a22);
+        if( !has_moved ) {
+          rotate_snake(i);
+        }
+        attempts++;
+      }
+      if( random(16) == 0 ) {
+        rotate_snake(i);
+      }
+      // chase color with uniform speed
+      // leds(snake[i.a11, snake[i].a12)] = CHSV(gHue[0]+(i*(255/ARRAY_SIZE(snake))), 255, 255);
+
+      // chase color with changing speed
+      double hue_d = (sin(millis()/8121.0)*gHue[0]) + (sin(millis()/7177.0)*i*(255/ARRAY_SIZE(snake)));
+      uint8_t hue = hue_d;
+      leds(snake[i].a11, snake[i].a12) = CHSV(hue, 255, 255);
+      
+      Serial.printf("%f ", hue_d);
+      Serial.printf("%d ", hue);
+    }
+    Serial.println();
+  }
+//  for( int i = 0; i < ARRAY_SIZE(snake); i++ ) {
+//    leds(snake[i.a11, snake[i].a12)] = CHSV(gHue[3]+(i*(255/ARRAY_SIZE(snake))), 255, 255);
+//  }
+}
+
+uint8_t maxlight( CRGB &led ) {
+  return led.r > led.g 
+            ? (
+                led.r > led.b 
+                  ? led.r 
+                  : led.b
+              ) 
+            : (
+                led.g > led.b 
+                  ? led.g 
+                  : led.b
+              );
+}
+
+void fadeToBlackLog() {
+  for( int i = 0; i < NUM_LEDS; i++ ) {
+    double f = rgb2hsv_approximate(leds(i)).v/200.0;
+    uint16_t x = f*leds(i).r;
+    leds(i).r = leds(i).r == 0 ? 0 : x < leds(i).r ? x : leds(i).r-1;
+    x = f*leds(i).g;
+    leds(i).g = leds(i).g == 0 ? 0 : x < leds(i).g ? x : leds(i).g-1;
+    x = f*leds(i).b;
+    leds(i).b = leds(i).b == 0 ? 0 : x < leds(i).b ? x : leds(i).b-1;
+  }
+}
+
+void fadeBlur() {
+  uint8_t blurAmount = beatsin8(2,10,255);
+  blur2d( leds[0], kMatrixWidth, kMatrixHeight, blurAmount);
+}
+
 
 struct Matrix multiply(struct Matrix m1, struct Matrix m2) {
   Matrix r = {
@@ -225,7 +403,7 @@ void sinematrix2() {
     for( int y = 0; y < kMatrixHeight; y++ ) {
       Vector c = add(multiply( multiply(rotate, zoom), { .x1 = x, .x2 = y } ), translate);
       Vector c2 = add(multiply( multiply(zoom2, rotate2), { .x1 = x, .x2 = y } ), translate2);
-      leds[ XYsafe(x,y) ] = CHSV((basecol+sines(c.x1, c.x2))*255, 255, 31+(sines(c2.x1-10, c2.x2-10)*224));
+      leds(x,y ) = CHSV((basecol+sines(c.x1, c.x2))*255, 255, 31+(sines(c2.x1-10, c2.x2-10)*224));
     }
   }
 }
@@ -269,8 +447,54 @@ void sinematrix3() {
     for( int y = 0; y < kMatrixHeight; y++ ) {
       Vector c = add(multiply( multiply(rotate, zoom), { .x1 = x-rcx, .x2 = y-rcy } ), translate);
       //Vector c2 = add(multiply( multiply(zoom2, rotate2), { .x1 = x, .x2 = y } ), translate2);
-      leds[XYsafe(x,y)] = CHSV((basecol+basefield(c.x1, c.x2))*255, 255, 255); //31+(sines(c2.x1-10, c2.x2-10)*224));
+      leds(x,y) = CHSV((basecol+basefield(c.x1, c.x2))*255, 255, 255); //31+(sines(c2.x1-10, c2.x2-10)*224));
     }
+  }
+}
+
+void sinematrix4() {
+  pangle = addmodpi( pangle, 0.0133 + (angle/256) );
+  angle = cos(pangle) * PI;
+  sx = addmodpi( sx, 0.00673 );
+  sy = addmodpi( sy, 0.00437 );
+  tx = addmodpi( tx, 0.000239 );
+  ty = addmodpi( ty, 0.000293 );
+  cx = addmodpi( cx, 0.000197 );
+  cy = addmodpi( cy, 0.000227 );
+  rcx = (kMatrixWidth/2) + (sin(cx) * kMatrixWidth);
+  rcy = (kMatrixHeight/2) + (sin(cy) * kMatrixHeight);
+  angle2 = addmodpi( angle2, 0.0029 );
+  sx2 = addmodpi( sx2, 0.0041);
+  sy2 = addmodpi( sy2, 0.0031);
+  tx2 = addmodpi( tx2, 0.0011 );
+  ty2 = addmodpi( ty2, 0.0023 );
+  basecol = addmod( basecol, 1.0, 0.007 );
+  
+  Matrix rotate = {
+    .a11 = cos(angle),
+    .a12 = -sin(angle),
+    .a21 = sin(angle),
+    .a22 = cos(angle)
+  };
+  Matrix zoom = {
+    .a11 = sin(sx)/8.0 + 0.05,
+    .a12 = 0, //atan(cos(sx2)),
+    .a21 = 0, //atan(cos(sy2)),
+    .a22 = cos(sy)/8.0 + 0.05
+  };
+  Vector translate = {
+    .x1 = sin(tx) * kMatrixWidth,
+    .x2 = sin(ty) * kMatrixHeight
+  };
+
+  for( int x = 0; x < kMatrixWidth; x++ ) {
+    for( int y = 0; y < kMatrixHeight; y++ ) {
+      Vector c = add(multiply( multiply(rotate, zoom), { .x1 = x-rcx, .x2 = y-rcy } ), translate);
+      double waveheight = basefield(c.x1, c.x2);
+      leds(x,y) = CHSV((basecol+(waveheight*1.5))*255, 255, waveheight*384);
+//      Serial.print(leds(x,y).r/26);
+    }
+//    Serial.println();
   }
 }
 
@@ -302,7 +526,7 @@ void sinematrix() {
   for( int x = 0; x < kMatrixWidth; x++ ) {
     for( int y = 0; y < kMatrixHeight; y++ ) {
       Vector c = add(multiply( multiply(zoom, rotate), { .x1 = x, .x2 = y } ), translate);
-      leds[XYsafe(x,y)] = CHSV((basecol+sines(c.x1-4, c.x2-4))*255, 255, 255);
+      leds(x,y) = CHSV((basecol+sines(c.x1-4, c.x2-4))*255, 255, 255);
     }
   }
 
@@ -349,7 +573,7 @@ void stuff() {
   if( vdy > PI/8 ) vdy = -PI/16;  if( vdy < -PI/16 ) vdy = PI/16;
   for( byte y = 0; y < kMatrixHeight; y++ ) {
     for( byte x = 0; x < kMatrixWidth; x++ ) {
-      leds[ XYsafe(x,y) ] = CHSV(
+      leds(x,y ) = CHSV(
         calc(hpx,hpy,hdx,hdy,x,y) * 254,
         ((calc(spx,spy,sdx,sdy,x,y) * 0.5) + 0.5) * 254,
         ((calc(vpx,vpy,vdx,vdy,x,y) * 0.75) + 0.25) * 254
@@ -365,7 +589,7 @@ void sinefield() {
     hue = step + (37 * sin( ((y*step)/(kMatrixHeight*PI)) * 0.04 ) );
     for( byte x = 0; x < kMatrixWidth; x++ ) {
       hue += 17 * sin(x/(kMatrixWidth*PI));
-      leds[ XYsafe(y,x) ] = CHSV(hue + ((unsigned long)step & 0x000000FF), 192 - (63*cos((hue+step)*PI*0.004145)), 255*sin((hue+step)*PI*0.003891));
+      leds(y,x ) = CHSV(hue + ((unsigned long)step & 0x000000FF), 192 - (63*cos((hue+step)*PI*0.004145)), 255*sin((hue+step)*PI*0.003891));
     }
   }
 }
@@ -374,7 +598,7 @@ void sinefield() {
 void rainbow() 
 {
   // FastLED's built-in rainbow generator
-  fill_rainbow( leds, NUM_LEDS, gHue, 7);
+  fill_rainbow( leds[0], NUM_LEDS, gHue[0], 7);
 }
 
 void rainbowWithGlitter() 
@@ -387,24 +611,24 @@ void rainbowWithGlitter()
 void addGlitter( fract8 chanceOfGlitter) 
 {
   if( random8() < chanceOfGlitter) {
-    leds[ random16(NUM_LEDS) ] += CRGB::White;
+    leds(random16(NUM_LEDS) ) += CRGB::White;
   }
 }
 
 void confetti() 
 {
   // random colored speckles that blink in and fade smoothly
-  fadeToBlackBy( leds, NUM_LEDS, 2);
+  fadeToBlackBy( leds[0], NUM_LEDS, 2);
   int pos = random16(NUM_LEDS);
-  leds[pos] += CHSV( gHue + random8(64), 200, 255);
+  leds(pos) += CHSV( gHue[0] + random8(64), 200, 255);
 }
 
 void sinelon()
 {
   // a colored dot sweeping back and forth, with fading trails
-  fadeToBlackBy( leds, NUM_LEDS, 64);
+  fadeToBlackBy( leds[0], NUM_LEDS, 64);
   int pos = beatsin16( 1, 0, NUM_LEDS-1 );
-  leds[pos] += CHSV( gHue, 255, 192);
+  leds(pos) += CHSV( gHue[1], 255, 192);
 }
 
 void bpm()
@@ -414,16 +638,16 @@ void bpm()
   CRGBPalette16 palette = PartyColors_p;
   uint8_t beat = beatsin8( BeatsPerMinute, 64, 255);
   for( int i = 0; i < NUM_LEDS; i++) { //9948
-    leds[i] = ColorFromPalette(palette, gHue+(i*2), beat-gHue+(i*10));
+    leds(i) = ColorFromPalette(palette, gHue[1]+(i*2), beat-gHue[1]+(i*10));
   }
 }
 
 void juggle() {
   // eight colored dots, weaving in and out of sync with each other
-  fadeToBlackBy( leds, NUM_LEDS, 5);
+  fadeToBlackBy( leds[0], NUM_LEDS, 20);
   byte dothue = 0;
   for( int i = 0; i < 8; i++) {
-    leds[beatsin16( i+7, 0, NUM_LEDS-1 )] |= CHSV(dothue, 200, 255);
+    leds(beatsin16( (accum88)2.0+((accum88)i*0.5), 0, NUM_LEDS-1 )) |= CHSV(dothue, 200, 255);
     dothue += 32;
   }
 }
@@ -624,7 +848,7 @@ void GameOfLifeFader(int cstep) {
       for( int y = 0; y < kMatrixHeight; y++ ) {
         byte from = valueof(gol_bufi^0x01, x, y);
         byte to = valueof(gol_bufi, x, y);
-        leds[ XYsafe(x,y) ] = CHSV(colorof(to == 0 ? gol_bufi^0x01 : gol_bufi, x, y), 255, (byte)(255 * (from + ((to-from) * (double)cstep) / (double)spd)) );
+        leds(x,y ) = CHSV(colorof(to == 0 ? gol_bufi^0x01 : gol_bufi, x, y), 255, (byte)(255 * (from + ((to-from) * (double)cstep) / (double)spd)) );
       }
     }
   }
@@ -637,7 +861,7 @@ void GameOfLifeFader(int cstep) {
       for( int y = 0; y < kMatrixHeight; y++ ) {
         double from = valueof(gol_bufi^0x01, x, y);
         double to = valueof(gol_bufi, x, y);
-        leds[ XYsafe(x,y) ] = CHSV(colorof(to == 0 ? gol_bufi^0x01 : gol_bufi, x, y), 255, 255 * (from + ((to-from) * cstep) / spd) );
+        leds(x,y ) = CHSV(colorof(to == 0 ? gol_bufi^0x01 : gol_bufi, x, y), 255, 255 * (from + ((to-from) * cstep) / spd) );
       }
     }
   }
@@ -750,13 +974,13 @@ unsigned char* Char(unsigned char* font, char c) {
 }
 
 void DrawSprite(unsigned char* sprite, int length, int xOffset, int yOffset) {
-  //  leds[ XYsafe(x, y) ] = CHSV(0, 0, 255);
+  //  leds(x, y ) = CHSV(0, 0, 255);
   for ( byte y = 0; y < 7; y++) {
     for ( byte x = 0; x < 5; x++) {
       bool on = (sprite[x] >> (6 - y) & 1) * 255;
       if (on) {
-        leds[ XYsafe(x + xOffset, y + yOffset) ] = SHOW_TEXT_COLOR;
-        //fadeToBlackBy(&leds[XYsafe(x + xOffset, y + yOffset)], 1, 224);
+        leds(x + xOffset, y + yOffset ) = SHOW_TEXT_COLOR;
+        //fadeToBlackBy(&leds(x + xOffset, y + yOffset), 1, 224);
       }
     }
   }
@@ -788,7 +1012,7 @@ void ShowText(char *text) {
   }
 }
 
-uint16_t XYsafe( int x, int y)
+uint16_t XYsafe( int x, int y )
 {
   if ( x >= kMatrixWidth) return 0;
   if ( y >= kMatrixHeight) return 0;
@@ -815,7 +1039,7 @@ uint16_t XYsafe( int x, int y)
 void Clear() {
   for ( byte y = 0; y < kMatrixHeight; y++) {
     for ( byte x = 0; x < kMatrixWidth; x++) {
-      leds[ XYsafe(x, y)]  = CHSV((16*y)+(47*x), 255, 42);
+      leds(x, y)  = CHSV((16*y)+(47*x), 255, 42);
     }
   }
 }
