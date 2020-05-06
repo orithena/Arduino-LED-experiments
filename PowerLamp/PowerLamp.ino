@@ -13,6 +13,10 @@ FASTLED_USING_NAMESPACE
 
 //#define DEBUG
 
+#define USE_WIFI_MANAGER
+//#define RESET_WIFI_CREDS
+#define FALLBACK_TO_AP
+
 #define DATA_PIN    22
 //#define CLK_PIN   4
 #define LED_TYPE    WS2812B
@@ -22,6 +26,8 @@ FASTLED_USING_NAMESPACE
 #define NUM_LEDS    (ROWS*COLS)
 CRGB leds[NUM_LEDS];
 
+// Replace with your network credentials
+const char* ssid     = "Lightbar";
 
 bool update_lights = true;
 bool update_display = true;
@@ -39,7 +45,7 @@ inline int val_to_ui(int x) {
   return sqrt(x / 255.0) * 100;
 }
 
-inline uint16_t XY( uint8_t x, uint8_t y)
+inline uint16_t XY( uint16_t x, uint16_t y)
 {
   return (((ROWS-1-y) * COLS) + ( (y & 0x01) == 0 ? (COLS - 1) - x : x ) ) % NUM_LEDS;
 }
@@ -69,7 +75,8 @@ NoiselessTouchESP32 touch(T6, 12, 12);
 
 // List of patterns to cycle through.  Each is defined as a separate function below.
 typedef int (*SimplePatternList[])();
-SimplePatternList gPatterns = { juggle, plain, sinefield2, sinematrix3 };
+//SimplePatternList gPatterns = { juggle, plain, sinefield2, sinematrix3 };
+SimplePatternList gPatterns = { sinematrix3, perlinmatrix };
 
 #ifdef FASTLED_USE_TASK
 // -- Task handles for use in the notifications
@@ -118,8 +125,8 @@ void FastLEDshowTask(void *pvParameters)
 
 void setup() {
   
-  Serial.begin(230400);
-  Serial.printf("\n\nKitchenLamp is booting...\n\nClock Speed: ");
+  Serial.begin(115200);
+  Serial.printf("\n\nPowerLight is booting...\n\nClock Speed: ");
   SPIFFS.begin();
 
   load_state();
@@ -170,14 +177,29 @@ void setup_ui() {
 }
 
 void setup_wifi() {
+  #ifdef RESET_WIFI_CREDS
+  WiFi.disconnect(false,true); 
+  #endif
+  #ifdef USE_WIFI_MANAGER
   WiFiManager wm;
   wm.setHostname("powerlight");
+  wm.setTimeout(180);
   if( wm.autoConnect("PowerLightSetup") ) {
     Serial.print("WiFi set up with IP: ");
     Serial.println(WiFi.localIP());
   } else {
-    Serial.println("Error connecting to WiFi");
+    Serial.println("Error connecting to WiFi, setting up Access Point.");
+  #endif
+  #ifdef FALLBACK_TO_AP
+    WiFi.softAP(ssid);
+  
+    IPAddress IP = WiFi.softAPIP();
+    Serial.print("AP IP address: ");
+    Serial.println(IP);
+  #endif
+  #ifdef USE_WIFI_MANAGER
   }
+  #endif
 }
 
 void setup_display() {
@@ -301,8 +323,8 @@ int juggle() {
   fadeToBlackBy( leds, NUM_LEDS, 25);
   byte dothue = (millis() >> 9) & 0xFF;
   for( int y = 0; y < ROWS; y++ ) {
-    for( int i = 0; i < 4; i++) {
-      LED(beatsin16( 1+(i*6)+y, 0, COLS-1 ), y) |= CHSV(dothue, 200, 255);
+    for( int i = 0; i < 6; i++) {
+      LED(beatsin16( 1+(i*(12*state.ratio))+y, 0, COLS-1 ), y) |= CHSV(dothue, 200, 255);
       dothue += 32;
     }
   }
@@ -408,10 +430,10 @@ int sinematrix3() {
     .a22 = cos(angle)
   };
   Matrix zoom = {
-    .a11 = sin(sx)/8.0 + 0.05,
+    .a11 = sin(sx)/32.0 + 0.01,
     .a12 = 0, //atan(cos(sx2)),
     .a21 = 0, //atan(cos(sy2)),
-    .a22 = cos(sy)/8.0 + 0.05
+    .a22 = cos(sy)/32.0 + 0.01
   };
   Vector translate = {
     .x1 = sin(tx) * COLS,
@@ -471,6 +493,61 @@ int FireLoop() {
     }
   }
   firecount++;
+  return 1;
+}
+
+int perlinmatrix() {
+  EVERY_N_MILLISECONDS(20) {
+    double f = state.ratio;
+    pangle = addmodpi( pangle, (0.0133 + (angle/256)) * (0.2+f) );
+    angle = cos(pangle) * PI;
+    sx = addmodpi( sx, 0.0000673 );
+    sy = addmodpi( sy, 0.0000437 );
+    tx = addmodpi( tx, 0.0000239 );
+    ty = addmodpi( ty, 0.0000293 );
+    cx = addmodpi( cx, 0.0000197 );
+    cy = addmodpi( cy, 0.0000227 );
+    rcx = (COLS/2) + (sin(cx) * COLS);
+    rcy = (ROWS/2) + (sin(cy) * ROWS);
+    //basecol = addmod( basecol, 1.0, 0.007 );
+    basecol = addmod( basecol, 1.0, 0.0097 * f );
+
+    double z1 = (sin(sx)/16.0) + 0.2;
+    double z2 = (cos(sy)/16.0) + 0.2;
+
+    Matrix rotate = {
+      .a11 = cos(angle),
+      .a12 = -sin(angle),
+      .a21 = sin(angle),
+      .a22 = cos(angle)
+    };
+    Matrix zoom = {
+      .a11 = z1,
+      .a12 = 0, //atan(cos(sx2)),
+      .a21 = 0, //atan(cos(sy2)),
+      .a22 = z2
+    };
+    Vector translate = {
+      .x1 = sin(tx) * COLS,
+      .x2 = sin(ty) * ROWS
+    };
+
+    Vector o1 = add(multiply( multiply(rotate, zoom), { .x1 = 0, .x2 = 0 } ), translate);
+    Vector o2 = add(multiply( multiply(rotate, zoom), { .x1 = COLS-1, .x2 = ROWS-1 } ), translate);
+    //Serial.printf("pangle: %10.7f   angle: %10.7f  sx: %10.7f  sy: %10.7f  tx: %10.7f  ty: %10.7f  cx: %10.7f  cy: %10.7f  rcx: %10.7f  rcy: %10.7f  basecol: %10.7f\n",
+    //  pangle, angle, sx, sy, tx, ty, cx, cy, rcx, rcy, basecol);
+
+    Serial.printf("pangle: %10.7f   angle: %10.7f  x: %10.7f  y: %10.7f  delta: %10.7f  z1: %10.7f  z2: %10.7f  \n",
+      pangle, angle, o1.x1, o1.x2, o2.x1-o1.x1, z1, z2);
+
+
+    for( int x = 0; x < COLS; x++ ) {
+      for( int y = 0; y < ROWS; y++ ) {
+        Vector c = add(multiply( multiply(rotate, zoom), { .x1 = x/32.0, .x2 = y/32.0 } ), translate);
+        LED(x,y) = CHSV((basecol + pnoise(c.x1, c.x2, 0))*255, 255, 255);
+      }
+    }
+  }
   return 1;
 }
 
@@ -553,4 +630,3 @@ inline int safe(int i) {
 inline float square(float x) {
   return x*x;
 }
-
