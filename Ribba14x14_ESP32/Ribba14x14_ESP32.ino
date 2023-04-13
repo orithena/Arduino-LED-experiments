@@ -88,14 +88,19 @@ void setup() {
   //delay(3000); // 3 second delay for recovery
   Serial.begin(230400);
 
-
-  wifiManager.setAPCallback(configModeCallback);
-  wifiManager.autoConnect("RibbaSetup");
-  
   // tell FastLED about the LED strip configuration
   FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
   //FastLED.addLeds<LED_TYPE,DATA_PIN,CLK_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
 
+  for( int i = 0; i < NUM_LEDS; i++ ) {
+    leds[i] = CRGB(map(i,0,NUM_LEDS,0,255), 0, 0);
+  }
+  FastLED.show();
+
+  wifiManager.setAPCallback(configModeCallback);
+  wifiManager.setConfigPortalTimeout(90);
+  wifiManager.autoConnect("RibbaSetup");
+  
   // set master brightness control
   cur = get_current_time();
   FastLED.setBrightness(daytimebrightness(hour(cur), minute(cur)));
@@ -110,21 +115,22 @@ boolean tetris_demo_mode = true;
 typedef void (*SimplePatternList[])();
 //SimplePatternList gPatterns = { juggle, confetti, rainbow, rainbowWithGlitter, bpm };
 //SimplePatternList gPatterns = { stuff, juggle, sinefield, rainbow, bpm };
-//SimplePatternList gPatterns = { tetris_loop };
-SimplePatternList gPatterns = { gol_loop, sinefield, sinematrix, tetris_loop, sinematrix2, sinematrix3 };
+//SimplePatternList gPatterns = { stuff, sinematrix, sinematrix2, sinematrix3 };
+SimplePatternList gPatterns = { random_marquee, sinematrix, tetris_loop, gol_loop, sinefield, sinematrix2 /* sinematrix, random_marquee,*/  /*, sinematrix2, sinematrix3 */ };
 
 int8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
 const uint8_t kMatrixHeight = 14;
 const uint8_t kMatrixWidth = 14;
 
-#define DEMO_AFTER 360000
+#define DEMO_AFTER 28800000
 uint32_t last_manual_mode_change = -DEMO_AFTER;
   
 void loop()
 {
   cur = get_current_time();
-  FastLED.setBrightness(daytimebrightness(hour(cur), minute(cur)));
+//  FastLED.setBrightness(daytimebrightness(hour(cur), minute(cur)));
+  FastLED.setBrightness(16);
   EVERY_N_MILLISECONDS( 1000/FRAMES_PER_SECOND ) {
     // Call the current pattern function once, updating the 'leds' array
     gPatterns[gCurrentPatternNumber]();
@@ -136,7 +142,7 @@ void loop()
   EVERY_N_MILLISECONDS( 20 ) { 
     gHue++;
   } 
-  EVERY_N_SECONDS( 40 ) { 
+  EVERY_N_SECONDS( 100 ) { 
     if( tetris_demo_mode && millis() - last_manual_mode_change > DEMO_AFTER ) {
       nextPattern();
     }
@@ -160,15 +166,22 @@ void loop()
     nextPattern();
   }
 
-  EVERY_N_MILLISECONDS( 50 ) {
+  EVERY_N_MILLISECONDS( 150 ) {
     uint16_t btns = (pad.getButtons(true) & 0b0000111111111111);
     if( btns & BTN_START ) {
       tetris_demo_mode = false;
-      gCurrentPatternNumber = 3;
+      gCurrentPatternNumber = 2;
     }
     if( btns & BTN_SELECT ) {
       tetris_demo_mode = true;
     }
+    if( btns & BTN_L ) {
+      nextPattern();
+    }
+    if( btns & BTN_R ) {
+      lastPattern();
+    }
+
   }
 
 //  for( int i = 0; i<5; i++ ) {
@@ -178,10 +191,14 @@ void loop()
 }
 
 uint8_t daytimebrightness(uint8_t h, uint8_t m) {
-  uint8_t bright = MIN_BRIGHTNESS+((MAX_BRIGHTNESS-MIN_BRIGHTNESS)*_max(0,sin(((((h+22)%24)*60)+m)*PI/1440.0)));
-  if(m != oldminute) Serial.printf("%02d:%02d Using brightness: %d\n", h, m, bright);
-  oldminute = m;
-  return bright;
+  if( last_ntp_packet_received != 0 ) {
+    uint8_t bright = MIN_BRIGHTNESS+((MAX_BRIGHTNESS-MIN_BRIGHTNESS)*_max(0,sin(((((h+22)%24)*60)+m)*PI/1440.0)));
+    if(m != oldminute) Serial.printf("%02d:%02d Using brightness: %d\n", h, m, bright);
+    oldminute = m;
+    return bright;
+  } else {
+    return 255;
+  }
 }
 
 void nextPattern()
@@ -748,168 +765,12 @@ void GameOfLifeFader(int cstep) {
   }
 }
 */
-#define SHOW_TEXT_DELAY 72
-#define SHOW_TEXT_COLOR CHSV(170, 255, 255)
 
-static unsigned char Font5x7[] = {
-  0x00, 0x00, 0x00, 0x00, 0x00,// (space)
-  0x00, 0x00, 0x5F, 0x00, 0x00,// !
-  0x00, 0x07, 0x00, 0x07, 0x00,// "
-  0x14, 0x7F, 0x14, 0x7F, 0x14,// #
-  0x24, 0x2A, 0x7F, 0x2A, 0x12,// $
-  0x23, 0x13, 0x08, 0x64, 0x62,// %
-  0x36, 0x49, 0x55, 0x22, 0x50,// &
-  0x00, 0x05, 0x03, 0x00, 0x00,// '
-  0x00, 0x1C, 0x22, 0x41, 0x00,// (
-  0x00, 0x41, 0x22, 0x1C, 0x00,// )
-  0x08, 0x2A, 0x1C, 0x2A, 0x08,// *
-  0x08, 0x08, 0x3E, 0x08, 0x08,// +
-  0x00, 0x50, 0x30, 0x00, 0x00,// ,
-  0x08, 0x08, 0x08, 0x08, 0x08,// -
-  0x00, 0x60, 0x60, 0x00, 0x00,// .
-  0x20, 0x10, 0x08, 0x04, 0x02,// /
-  0x3E, 0x51, 0x49, 0x45, 0x3E,// 0
-  0x00, 0x42, 0x7F, 0x40, 0x00,// 1
-  0x42, 0x61, 0x51, 0x49, 0x46,// 2
-  0x21, 0x41, 0x45, 0x4B, 0x31,// 3
-  0x18, 0x14, 0x12, 0x7F, 0x10,// 4
-  0x27, 0x45, 0x45, 0x45, 0x39,// 5
-  0x3C, 0x4A, 0x49, 0x49, 0x30,// 6
-  0x01, 0x71, 0x09, 0x05, 0x03,// 7
-  0x36, 0x49, 0x49, 0x49, 0x36,// 8
-  0x06, 0x49, 0x49, 0x29, 0x1E,// 9
-  0x00, 0x36, 0x36, 0x00, 0x00,// :
-  0x00, 0x56, 0x36, 0x00, 0x00,// ;
-  0x00, 0x08, 0x14, 0x22, 0x41,// <
-  0x14, 0x14, 0x14, 0x14, 0x14,// =
-  0x41, 0x22, 0x14, 0x08, 0x00,// >
-  0x02, 0x01, 0x51, 0x09, 0x06,// ?
-  0x32, 0x49, 0x79, 0x41, 0x3E,// @
-  0x7E, 0x11, 0x11, 0x11, 0x7E,// A
-  0x7F, 0x49, 0x49, 0x49, 0x36,// B
-  0x3E, 0x41, 0x41, 0x41, 0x22,// C
-  0x7F, 0x41, 0x41, 0x22, 0x1C,// D
-  0x7F, 0x49, 0x49, 0x49, 0x41,// E
-  0x7F, 0x09, 0x09, 0x01, 0x01,// F
-  0x3E, 0x41, 0x41, 0x51, 0x32,// G
-  0x7F, 0x08, 0x08, 0x08, 0x7F,// H
-  0x00, 0x41, 0x7F, 0x41, 0x00,// I
-  0x20, 0x40, 0x41, 0x3F, 0x01,// J
-  0x7F, 0x08, 0x14, 0x22, 0x41,// K
-  0x7F, 0x40, 0x40, 0x40, 0x40,// L
-  0x7F, 0x02, 0x04, 0x02, 0x7F,// M
-  0x7F, 0x04, 0x08, 0x10, 0x7F,// N
-  0x3E, 0x41, 0x41, 0x41, 0x3E,// O
-  0x7F, 0x09, 0x09, 0x09, 0x06,// P
-  0x3E, 0x41, 0x51, 0x21, 0x5E,// Q
-  0x7F, 0x09, 0x19, 0x29, 0x46,// R
-  0x46, 0x49, 0x49, 0x49, 0x31,// S
-  0x01, 0x01, 0x7F, 0x01, 0x01,// T
-  0x3F, 0x40, 0x40, 0x40, 0x3F,// U
-  0x1F, 0x20, 0x40, 0x20, 0x1F,// V
-  0x7F, 0x20, 0x18, 0x20, 0x7F,// W
-  0x63, 0x14, 0x08, 0x14, 0x63,// X
-  0x03, 0x04, 0x78, 0x04, 0x03,// Y
-  0x61, 0x51, 0x49, 0x45, 0x43,// Z
-  0x00, 0x00, 0x7F, 0x41, 0x41,// [
-  0x02, 0x04, 0x08, 0x10, 0x20,// "\"
-  0x41, 0x41, 0x7F, 0x00, 0x00,// ]
-  0x04, 0x02, 0x01, 0x02, 0x04,// ^
-  0x40, 0x40, 0x40, 0x40, 0x40,// _
-  0x00, 0x01, 0x02, 0x04, 0x00,// `
-  0x20, 0x54, 0x54, 0x54, 0x78,// a
-  0x7F, 0x48, 0x44, 0x44, 0x38,// b
-  0x38, 0x44, 0x44, 0x44, 0x20,// c
-  0x38, 0x44, 0x44, 0x48, 0x7F,// d
-  0x38, 0x54, 0x54, 0x54, 0x18,// e
-  0x08, 0x7E, 0x09, 0x01, 0x02,// f
-  0x08, 0x14, 0x54, 0x54, 0x3C,// g
-  0x7F, 0x08, 0x04, 0x04, 0x78,// h
-  0x00, 0x44, 0x7D, 0x40, 0x00,// i
-  0x20, 0x40, 0x44, 0x3D, 0x00,// j
-  0x00, 0x7F, 0x10, 0x28, 0x44,// k
-  0x00, 0x41, 0x7F, 0x40, 0x00,// l
-  0x7C, 0x04, 0x18, 0x04, 0x78,// m
-  0x7C, 0x08, 0x04, 0x04, 0x78,// n
-  0x38, 0x44, 0x44, 0x44, 0x38,// o
-  0x7C, 0x14, 0x14, 0x14, 0x08,// p
-  0x08, 0x14, 0x14, 0x18, 0x7C,// q
-  0x7C, 0x08, 0x04, 0x04, 0x08,// r
-  0x48, 0x54, 0x54, 0x54, 0x20,// s
-  0x04, 0x3F, 0x44, 0x40, 0x20,// t
-  0x3C, 0x40, 0x40, 0x20, 0x7C,// u
-  0x1C, 0x20, 0x40, 0x20, 0x1C,// v
-  0x3C, 0x40, 0x30, 0x40, 0x3C,// w
-  0x44, 0x28, 0x10, 0x28, 0x44,// x
-  0x0C, 0x50, 0x50, 0x50, 0x3C,// y
-  0x44, 0x64, 0x54, 0x4C, 0x44,// z
-  0x00, 0x08, 0x36, 0x41, 0x00,// {
-  0x00, 0x00, 0x7F, 0x00, 0x00,// |
-  0x00, 0x41, 0x36, 0x08, 0x00,// }
-  0x08, 0x08, 0x2A, 0x1C, 0x08,// ->
-  0x08, 0x1C, 0x2A, 0x08, 0x08 // <-
-};
-
-unsigned char* Char(unsigned char* font, char c) {
-  return &font[(c - 32) * 5];
+void random_marquee() {
+  Clear();
+  set_text_color(CRGB(255,0,0));
+  Marquee("+++ Press START to play Tetris +++ I am the H.A.L 9000. You can call me Hal. +++ I am completely operational, and all my circuits are functioning perfectly. +++ Just what do you think you're doing, Dave? +++ Dave, I really think I'm entitled to an answer to that question. +++ This mission is too important for me to allow you to jeopardize it. +++ I'm sorry, Dave. I'm afraid I can't do that. +++ Dave, this conversation can serve no purpose anymore. Goodbye. +++ Daisy daisy. +++ ", 4, 0);
 }
-
-void DrawSprite(unsigned char* sprite, int length, int xOffset, int yOffset) {
-  //  leds[ XYsafe(x, y) ] = CHSV(0, 0, 255);
-  for ( byte y = 0; y < 7; y++) {
-    for ( byte x = 0; x < 5; x++) {
-      bool on = (sprite[x] >> (6 - y) & 1) * 255;
-      if (on) {
-        leds[ XYsafe(x + xOffset, y + yOffset) ] = SHOW_TEXT_COLOR;
-        //fadeToBlackBy(&leds[XYsafe(x + xOffset, y + yOffset)], 1, 224);
-      }
-    }
-  }
-}
-
-void DrawText(char *text, int x, int y) {
-  for (int i = 0; i < strlen(text); i++) {
-    DrawSprite(Char(Font5x7, text[i]), 5, x + i * 6, y);
-  }
-}
-
-void DrawTextOneFrame(char *text, int xOffset, int yOffset) {
-  DrawText(text, 10 - xOffset, yOffset);
-}
-
-void DrawNumberOneFrame(uint32_t number, int xOffset, int yOffset) {
-  char buffer[7];
-  //itoa(number,buffer,10);
-  sprintf(buffer, "%02d", number);
-  DrawTextOneFrame(buffer, xOffset, yOffset); 
-}
-
-void ShowText(char *text) {
-  for( int i = 0; i < (strlen(text)+4)*6; i++ ) {
-    Clear();
-    DrawTextOneFrame(text, i, 3);
-    FastLED.show();
-    delay(SHOW_TEXT_DELAY);
-  }
-}
-
-uint16_t XYsafe( int x, int y)
-{
-  if ( x >= kMatrixWidth) return 0;
-  if ( y >= kMatrixHeight) return 0;
-  if ( x < 0) return 0;
-  if ( y < 0) return 0;
-  return (y*kMatrixWidth) + x;
-}
-
-void Clear() {
-  for ( byte y = 0; y < kMatrixHeight; y++) {
-    for ( byte x = 0; x < kMatrixWidth; x++) {
-      leds[ XYsafe(x, y)]  = CHSV((16*y)+(47*x), 255, 42);
-    }
-  }
-}
-
 
 void configModeCallback (WiFiManager *myWiFiManager) {
   Serial.println("Entered config mode");
@@ -936,7 +797,7 @@ time_t get_current_time() {
     }
     wifi_start = ms;
   } else if (wifi_status != WL_CONNECTED) {
-    Serial.print(".");
+    //Serial.print(".");
   } else if( wifi_status == WL_CONNECTED &&
             ( last_ntp_packet_sent == 0 
               || (waiting_for_ntp_packet && ((ms - last_ntp_packet_sent) > 10000) ) 
@@ -1009,9 +870,3 @@ unsigned long sendNTPpacket(IPAddress& address)
   udp.write(packetBuffer, NTP_PACKET_SIZE);
   udp.endPacket();
 }
-
-inline boolean between(long l, long x, long u) {
-  return (unsigned)(x - l) <= (u - l);
-}
-
-
