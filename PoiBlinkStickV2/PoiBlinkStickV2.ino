@@ -18,7 +18,7 @@ FASTLED_USING_NAMESPACE
 #define DATA_PIN 6
 #define BUTTON_PIN 8
 
-#define TEXT_STRING "PUN"
+#define TEXT_STRING "CCCAMP19"
 
 // Define the array of leds
 CRGB real_leds[NUM_LEDS+ADD_LEDS];
@@ -42,19 +42,25 @@ void setup() {
 typedef void (*SimplePatternList[])(uint32_t ms);
 SimplePatternList patterns = { 
   loop_demo,
-  loop_Stars2, 
-  loop_Text,
-  loop_RainbowSpiral,
+  loop_HeartRGB,
   loop_RainbowSpiral2,
+  loop_RandomStars,
+  loop_RGB_sawtooth_inv, 
+  loop_Rainbow_Dec,  
+  loop_Lissajou,
+  loop_Stars2, 
+//  loop_Text,
+  loop_RainbowSpiral,
   loop_Pacman, 
-  loop_Pong,
-  loop_Heart,
   loop_RGB_sawtooth, 
+  loop_Lissajou,
+//  loop_Pong,
+//  loop_Heart,
   loop_Rainbow, 
 //  loop_RGBBlink, 
-  loop_Rainbow_Inc,  
+//  loop_Rainbow_Inc,  
 //  loop_Red,
-  loop_Stars 
+//  loop_Stars 
 };
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 #define MODE_COUNT ARRAY_SIZE( patterns )
@@ -163,6 +169,18 @@ void loop_Heart(uint32_t ms) {
   int idx = (((ms>>3) & 0x0FFF) % 10);
   for( int i = 0; i < NUM_LEDS; i++) {
     leds[i] = CRGB(255 * ((heart[idx] >> (NUM_LEDS - 1 - i)) & 0x0001),0,0);
+  }  
+  base_Color(CRGB(255,0,0));
+}
+
+byte heart_color = 0;
+void loop_HeartRGB(uint32_t ms) {
+  int idx = (((ms>>3) & 0x0FFF) % 10);
+  if( idx == 0 ) {
+    heart_color += 27;
+  }
+  for( int i = 0; i < NUM_LEDS; i++) {
+    leds[i] = CHSV(heart_color, 255, 255 * ((heart[idx] >> (NUM_LEDS - 1 - i)) & 0x0001));
   }  
   base_Color(CRGB(255,0,0));
 }
@@ -282,11 +300,31 @@ void loop_Pong(uint32_t ms) {
   base_RGB(ms);
 }
 
+#define LISSAJOUS 4
+void loop_Lissajou(uint32_t ms) {
+  Clear();
+  for( int i = 0; i < LISSAJOUS; i++ ) {
+    byte col = ((ms >> 5) & 0xFF) + ((256/LISSAJOUS)*i); 
+    byte pos = (NUM_LEDS/2) + (sin(((ms >> 1) & 0x0000FFFF) / ((5+i)*PI)) * (NUM_LEDS/2));
+    pos = max(0, min(NUM_LEDS-1, pos));
+    leds[pos] |= CHSV(col, 255, 255);
+  }
+}
+
 void loop_FunnyStars(uint32_t ms) {
-  byte col = ((ms >> 5) & 0x000000FF);
+  byte col = random(255);// ((ms >> 5) & 0x000000FF);
   byte pos = cos(ldexp((double)(ms & 0x0000FFFF), 16)) * NUM_LEDS;
   for( int i = 0; i < NUM_LEDS; i++ ) {
     leds[i] = CHSV(col, 255, 255*(pos==i));
+  }
+}
+
+void loop_RandomStars(uint32_t ms) {
+  Clear();
+  byte col = random(255);
+  byte count = random(NUM_LEDS/2)+(NUM_LEDS/4);
+  for( int i = 0; i < count; i++ ) {
+    leds[random(NUM_LEDS)] |= CHSV(col, 255, 255);
   }
 }
 
@@ -345,6 +383,18 @@ void loop_Rainbow_Inc(uint32_t ms) {
   base_RGB(ms);
 }
 
+void loop_Rainbow_Dec(uint32_t ms) { 
+  Clear();
+  byte lastled = ((ms >> 4) & 0x0FFF) % NUM_LEDS;
+  byte offset = (((ms >> 6) & 0x00FF) % NUM_LEDS) * (255/NUM_LEDS);
+  for( int i = 0; i <= lastled; i++ ) {
+    
+    leds[i] = CHSV(offset + lastled + i*(255/NUM_LEDS),255,255);
+
+  }
+  base_RGB(ms);
+}
+
 void loop_RGB_sawtooth(uint32_t ms) { 
   Clear();
   int count = (ms >> 3) % (NUM_LEDS/2);
@@ -353,6 +403,19 @@ void loop_RGB_sawtooth(uint32_t ms) {
     
     leds[i] = CHSV(col*42,255,255);
     leds[NUM_LEDS - 1 - i] = CHSV(col*42,255,255);
+
+  }
+  base_RGB(ms);
+}
+
+void loop_RGB_sawtooth_inv(uint32_t ms) { 
+  Clear();
+  int count = (NUM_LEDS/2) - 1 - ((ms >> 3) % (NUM_LEDS/2));
+  int col = ((ms >> 3) / (NUM_LEDS/2)) % 6;
+  for( int i = 0; i <= count; i++ ) {
+    
+    leds[(NUM_LEDS/2) + i] = CHSV(col*42,255,255);
+    leds[(NUM_LEDS/2) - 1 - i] = CHSV(col*42,255,255);
 
   }
   base_RGB(ms);
@@ -629,5 +692,3 @@ boolean check_button() {
   }
   return ret;
 }
-
-
