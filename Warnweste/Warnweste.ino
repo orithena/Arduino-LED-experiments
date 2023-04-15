@@ -17,10 +17,10 @@ extern "C" {
 //#define CLK_PIN   4
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER GRB
-#define NUM_LEDS    46
+#define NUM_LEDS    36
 CRGB leds[NUM_LEDS];
 
-#define BRIGHTNESS         32
+#define BRIGHTNESS         96
 #define FRAMES_PER_SECOND  80
 
 void setup() {
@@ -44,10 +44,10 @@ void setup() {
 
 // List of patterns to cycle through.  Each is defined as a separate function below.
 typedef void (*SimplePatternList[])();
-SimplePatternList gPatterns = { juggle, confetti, sinelon, rainbow, rainbowWithGlitter, bpm, blinken };
+SimplePatternList gPatterns = { juggle, confetti, sinelon, rainbow, rainbowWithGlitter, bpm, blinken, cycling };
 //SimplePatternList gPatterns = { rainbow };
 
-uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
+uint8_t gCurrentPatternNumber = 7; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
   
 void loop()
@@ -55,7 +55,7 @@ void loop()
 
   char morse = morse_decode();
   if( morse != '\0' ) {
-    Serial.print(morse);
+    Serial.println(morse);
     switch( morse ) {
       case 'J': gCurrentPatternNumber = 0;
                 break; 
@@ -68,6 +68,9 @@ void loop()
       case 'G': gCurrentPatternNumber = 4;
                 break; 
       case 'B': gCurrentPatternNumber = 6;
+                break; 
+      case 'I': gCurrentPatternNumber = 7;
+                FastLED.setBrightness(96);
                 break; 
       case 'O': FastLED.setBrightness(0);
                 break;
@@ -86,14 +89,14 @@ void loop()
     }
   }
 
-  // Call the current pattern function once, updating the 'leds' array
-  gPatterns[gCurrentPatternNumber]();
+  EVERY_N_MILLISECONDS(1000/FRAMES_PER_SECOND) {
+    // Call the current pattern function once, updating the 'leds' array
+    gPatterns[gCurrentPatternNumber]();
+    
+    // send the 'leds' array out to the actual LED strip
+    FastLED.show();
+  }
   
-  // send the 'leds' array out to the actual LED strip
-  FastLED.show();  
-  // insert a delay to keep the framerate modest
-  FastLED.delay(1000/FRAMES_PER_SECOND); 
-
   // do some periodic updates
   EVERY_N_MILLISECONDS( 20 ) { gHue++; } // slowly cycle the "base color" through the rainbow
   // EVERY_N_SECONDS( 20 ) { nextPattern(); } // change patterns periodically
@@ -184,6 +187,9 @@ inline int32_t max(int32_t a, int32_t b) {
 char morse_decode() {
   uint32_t ms = millis();
   int button_state = digitalRead(BTN_PIN);
+  if( ms - lastchange < 10 ) {
+    return '\0';
+  }
   if( button_state != old_button_state ) {
     hist[ringend] = ms - lastchange;
     lastchange = ms;
@@ -195,16 +201,16 @@ char morse_decode() {
     uint32_t hmin = 0x7FFFFFFF;
     uint32_t hmax = 0;
     int c = ringstart;
+    Serial.print("hist: ");
     while( diff(c, ringend) > 0 ) {
       if( hist[c] < MAX_DELAY ) {
         hmin = min(hmin, hist[c]);
         hmax = max(hmax, hist[c]);
       }
-      //Serial.print(hist[c]);
-      //Serial.print("\t");
+      Serial.printf("%4d%c  ", hist[c], c % 2 == 0 ? '.' : '#');
       c = (c+1) % RING_SIZE;
     }
-    //Serial.printf("-%d\t+%d\t", hmin, hmax);
+    Serial.printf("%4d, | hmin:%3d hmax:+%3d | ", ms - lastchange, hmin, hmax);
     uint32_t threshold = hmin + ((hmax - hmin) / 2);
     if( hmin > (hmax/2) ) {
       // only short pulses/gaps or only one pulse detected
@@ -214,8 +220,7 @@ char morse_decode() {
       // only one pulse detected
       threshold = DEFAULT_THRESHOLD;
     }
-    //Serial.print(threshold);
-    //Serial.print("\t");
+    Serial.printf("T=%4d |", threshold);
     c = ringstart;
     String morsecode = "";
     while( diff(c, ringend) > 0 ) {
@@ -225,19 +230,22 @@ char morse_decode() {
         } else {
           morsecode += ".";
         }
-      }
-      // Serial.print(morsecode);
-      if( diff(c, ringend) == 1 && ms - lastchange > (threshold*2) ) {
-        // last pause
-        ringstart = ringend;
-        for( int i = 0; i < sizeof MorseMap / sizeof *MorseMap; ++i ) {
-          if( morsecode == MorseMap[i].code ) {
-            return MorseMap[i].letter;
+        if( diff(c, ringend) == 1 ) {
+          Serial.print(morsecode);
+          if( ms - lastchange > (threshold*2) ) {
+            // ok, that last pause got too long, so we reset the ringbuffer
+            ringstart = ringend;
+            for( int i = 0; i < sizeof MorseMap / sizeof *MorseMap; ++i ) {
+              if( morsecode == MorseMap[i].code ) {
+                return MorseMap[i].letter;
+              }
+            }
           }
         }
       }
       c = (c+1) % RING_SIZE;
     }
+    Serial.println();
   }
   old_button_state = button_state;
   return '\0';
@@ -249,6 +257,22 @@ void nextPattern()
 {
   // add one to the current pattern number, and wrap around at the end
   gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE( gPatterns);
+}
+
+#define RUNTIME 2048
+#define LIGHTS 4
+#define FADE 24
+
+void cycling() {
+  fadeToBlackBy( leds, NUM_LEDS, FADE);
+  for( int i = 0; i < LIGHTS; i++ ) {
+    int p = map((millis()+(i*(RUNTIME/LIGHTS)))%RUNTIME, 0, RUNTIME, 0, (NUM_LEDS/2));
+    CRGB col = p > NUM_LEDS/4 ? CRGB::White : CRGB::Red;
+    int p1 = NUM_LEDS/2-1 - p;
+    int p2 = NUM_LEDS/2 + p;
+    leds[p1] = col;
+    leds[p2] = col;
+  }
 }
 
 void blinken() 
@@ -313,4 +337,3 @@ void juggle() {
     dothue += 32;
   }
 }
-
