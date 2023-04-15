@@ -4,9 +4,9 @@
 // How many leds in your strip?
 #define NUM_LEDS 12
 // Where is the LED data line connected?
-#define DATA_PIN 5
-#define BRIGHT_BTN 4
-#define MODE_BTN 3
+#define DATA_PIN D3
+#define BRIGHT_BTN D5
+#define MODE_BTN D6
 
 Button bright_btn, mode_btn;
 byte bright = 0;
@@ -23,7 +23,7 @@ void setup() {
   bright_btn.setMode(OneShotTimer);
   mode_btn.setMode(OneShotTimer);
   FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);
-  FastLED.setBrightness(bright);
+  FastLED.setBrightness(255);
 }
 
 #define MODE_NUM 9
@@ -37,7 +37,7 @@ void loop() {
     mode = (mode + 1) % MODE_NUM;
   }
 
-  FastLED.setBrightness(min(255, bright*64));
+  //FastLED.setBrightness(min(255, bright*64));
   switch( mode ) {
     case 0:
     fill_rainbow(leds, NUM_LEDS, offset, 7);
@@ -71,4 +71,3 @@ void loop() {
   delay(10);
   offset++;
 }
-
