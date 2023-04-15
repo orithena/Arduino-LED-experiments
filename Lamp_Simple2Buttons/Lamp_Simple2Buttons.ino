@@ -5,12 +5,12 @@
 #include "ESP8266WiFi.h"
 
 // How many leds in your strip?
-#define NUM_LEDS 16
+#define NUM_LEDS 17
 // Where is the LED data line connected?
 #define LED_DATA D3
 #define BRIGHT_BTN D6
-#define SPEED_BTN D5
-#define MODE_BTN D7
+#define SPEED_BTN D7
+#define MODE_BTN D5
 
 #define DEBUG
 
@@ -19,7 +19,7 @@ byte bright = 2;
 byte mode = 0;
 
 enum led_mapping_mode { Z_UP, Z_DOWN, MIRROR2, MIRROR2INV, TWOWAY, TWOWAYINV, CLOCK, COUNTERCLOCK };
-enum led_mapping_mode mapmode = Z_UP;
+enum led_mapping_mode mapmode = MIRROR2;
 #define MODE_NUM 8
 
 // Define the array of leds
@@ -71,7 +71,7 @@ void loop() {
   
     switch( mode ) {
       case 0:
-      fill_rainbow(leds, NUM_LEDS, (ms >> 3) & 0xFF, 255/NUM_LEDS);
+      fill_rainbow(leds, NUM_LEDS, (ms >> 5) & 0xFF, 255/NUM_LEDS);
       break;
       case 1:
       fill_rainbow(leds, NUM_LEDS, 0, 255/NUM_LEDS);
@@ -106,9 +106,9 @@ void loop() {
         real_leds_old[a] = real_leds[a];
       }
     }
-    if( changed ) {
+    //if( changed ) {
       FastLED.show();
-    }
+    //}
   }
   wdt_reset();
 }
@@ -176,4 +176,3 @@ inline boolean between(int a, int x, int b) {
 #ifdef DEBUG
 
 #endif
-
