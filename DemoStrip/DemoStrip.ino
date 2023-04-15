@@ -21,7 +21,7 @@ extern "C" {
 }
 
 
-#define DATA_PIN    D3
+#define DATA_PIN    D2
 //#define CLK_PIN   4
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER GRB
@@ -151,4 +151,3 @@ void juggle() {
     dothue += 32;
   }
 }
-
