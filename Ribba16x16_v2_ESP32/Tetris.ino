@@ -198,10 +198,10 @@ void blink_line(int y, int board_offset, int repeat) {
       }
       for( int x = 0; x < kMatrixWidth; x++ ) {
         if( my < 0 ) {
-          leds[ XYsafe( x,0 ) ] = CHSV( 0, 0, ((n*kMatrixWidth)+(x*36)+(y*36L*(repeat%8)))%128 );
+          leds( x,0  ) = CHSV( 0, 0, ((n*kMatrixWidth)+(x*36)+(y*36L*(repeat%8)))%128 );
         } 
         else {
-          leds[ XYsafe( x,my ) ] = CHSV( ((n*kMatrixWidth)+(x*36)+(y*36L*(repeat%8)))%256, 255, 128 );
+          leds( x,my  ) = CHSV( ((n*kMatrixWidth)+(x*36)+(y*36L*(repeat%8)))%256, 255, 128 );
         }
       }
       if( n >= when ) {
@@ -241,7 +241,7 @@ void blank_line(int y, int board_offset, int pause) {
   int my = y-board_offset;
   if( my >= 0 && my < kMatrixHeight ) {
     for( int x = 0; x < kMatrixWidth; x++ ) {
-      leds[ XYsafe( x, my) ] = CHSV( 0,0,0 );
+      leds( x, my ) = CHSV( 0,0,0 );
     }
     FastLED.show();
     delay(pause);
@@ -288,14 +288,14 @@ void display(int board_offset) {
       Serial.println((Char(Font5x7, 48+level)[x] >> (6 - y) & 1), HEX);
 #endif
       if( to > 0 ) {
-        leds[ XYsafe(x,y) ] = palette(to);
+        leds(x,y ) = palette(to);
       } 
       else if( x >= 5 && x < 10 && (Char(Font5x7, 48+level)[x-5] >> (12 - y) & 1) * 255 ) {
-        leds[ XYsafe(x,y) ] = CHSV(0,0,0);
+        leds(x,y ) = CHSV(0,0,0);
       }
       else {
-        //leds[ XYsafe(x,y) ] = CHSV(170-(((y+board_offset)*170)/kBoardHeight), 255, 32 + (((y+board_offset)%5)*8) );
-        leds[ XYsafe(x,y) ] = CHSV(0, 255, 32 );
+        //leds(x,y ) = CHSV(170-(((y+board_offset)*170)/kBoardHeight), 255, 32 + (((y+board_offset)%5)*8) );
+        leds(x,y ) = CHSV(0, 255, 32 );
       }
     }
   }
@@ -305,7 +305,7 @@ void display(int board_offset) {
       for( int y = 0; y < 4; y++ ) {
         for( byte p = 0; p < 4; p++ ) {
           if( stone_x + stones[stone][rotation][p][0] == x && stones[stone][rotation][p][1] == y) {
-            leds[ XYsafe(x,base_line + y) ] = CHSV(0, 0, 96);
+            leds(x,base_line + y ) = CHSV(0, 0, 96);
           }
         }
       }

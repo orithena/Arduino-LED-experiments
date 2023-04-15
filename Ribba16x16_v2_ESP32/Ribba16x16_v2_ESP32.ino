@@ -34,43 +34,6 @@ const bool kMatrixSerpentineLayout = false;
 
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 
-typedef struct IntMatrix {
-  int a11;
-  int a12;
-  int a21;
-  int a22;
-} IntMatrix;
-
-IntMatrix snake[] = {
-  { .a11 = kMatrixWidth*2/3, .a12 = kMatrixHeight*2/3, .a21 =  1,  .a22 =  0 },
-  { .a11 = kMatrixWidth/3,   .a12 = kMatrixHeight*2/3, .a21 =  0,  .a22 =  1 },
-  { .a11 = kMatrixWidth*2/3, .a12 = kMatrixHeight/3,   .a21 = -1,  .a22 =  0 },
-  { .a11 = kMatrixWidth/3,   .a12 = kMatrixHeight/3,   .a21 =  0,  .a22 = -1 },  
-  { .a11 = kMatrixWidth*2/3, .a12 = kMatrixHeight/2,   .a21 = -1,  .a22 =  0 },
-  { .a11 = kMatrixWidth/3,   .a12 = kMatrixHeight/1,   .a21 =  0,  .a22 = -1 }  
-};
-
-typedef struct Vector {
-  double x1;
-  double x2;
-} Vector;
-
-typedef struct Matrix {
-  double a11;
-  double a12;
-  double a21;
-  double a22;
-} Matrix;
-
-Matrix dsnake[] = {
-  { .a11 = kMatrixWidth*2/3, .a12 = kMatrixHeight*2/3, .a21 =  1,  .a22 =  0 },
-  { .a11 = kMatrixWidth/3,   .a12 = kMatrixHeight*2/3, .a21 =  0,  .a22 =  1 },
-  { .a11 = kMatrixWidth*2/3, .a12 = kMatrixHeight/3,   .a21 = -1,  .a22 =  0 },
-  { .a11 = kMatrixWidth/3,   .a12 = kMatrixHeight/3,   .a21 =  0,  .a22 = -1 },  
-  { .a11 = kMatrixWidth*2/3, .a12 = kMatrixHeight/2,   .a21 = -1,  .a22 =  0 },
-  { .a11 = kMatrixWidth/3,   .a12 = kMatrixHeight/1,   .a21 =  0,  .a22 = -1 }  
-};
-
 void setup() {
   //delay(3000); // 3 second delay for recovery
   Serial.begin(230400);
@@ -80,21 +43,11 @@ void setup() {
   //FastLED.addLeds<LED_TYPE,DATA_PIN,CLK_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
 
   //FastLED.setMaxPowerInVoltsAndMilliamps(5, MAX_POWER_MW);
-  FastLED.setBrightness(192);
+  FastLED.setBrightness(96);
   tetris_setup();
-
-  for( int i = 0; i<NUM_LEDS; i++) {
-    leds(i) = CHSV(i, 255, 255);
+  for( int i = 0; i < NUM_LEDS; i++) {
+    leds(i) = CRGB(0,0,0);
   }
-  printmatrix();
-  fadeToBlackLog();
-  printmatrix();
-  fadeToBlackLog();
-  printmatrix();
-  fadeToBlackLog();
-  printmatrix();
-  fadeToBlackLog();
-  printmatrix();
 }
 
 void printmatrix() {
@@ -126,11 +79,23 @@ typedef void (*SimplePatternList[])();
 //SimplePatternList gPatterns = { stuff, juggle, sinefield, rainbow, bpm };
 //SimplePatternList gPatterns = { snakes };
 //SimplePatternList gPatterns = { snakes, sinematrix4, sinefield, tetris_loop, sinematrix3, gol_loop, sinematrix };
-SimplePatternList gPatterns = { snakes, sinematrix4, sinefield, gol_loop };
+SimplePatternList gPatterns = { perlinmatrix, tetris_loop, doublesnakes, sinematrix, gol_loop, snakes, sinematrix4, tetris_loop, sinefield, gol_loop, sinematrix3 };
 
 int8_t gCurrentPatternNumber = 0;  // Index number of which pattern is current
 uint8_t gHue[] = { 0, 0, 0, 0 };   // rotating "base color" used by many of the patterns
 
+
+typedef struct Vector {
+  double x1;
+  double x2;
+} Vector;
+
+typedef struct Matrix {
+  double a11;
+  double a12;
+  double a21;
+  double a22;
+} Matrix;
 
 #define DEMO_AFTER 360000
 uint32_t last_manual_mode_change = -DEMO_AFTER;
@@ -157,7 +122,7 @@ void loop()
   EVERY_N_MILLISECONDS( 540 ) { 
     gHue[3]++;
   } 
-  EVERY_N_SECONDS( 40 ) { 
+  EVERY_N_SECONDS( 240 ) { 
     if( tetris_demo_mode && millis() - last_manual_mode_change > DEMO_AFTER ) {
       nextPattern();
     }
@@ -177,78 +142,6 @@ void lastPattern()
   if( gCurrentPatternNumber < 0 ) gCurrentPatternNumber += ARRAY_SIZE(gPatterns);
 }
 
-bool is_empty(int x, int y) {
-  if( x < 0 || x >= kMatrixWidth || y < 0 || y >= kMatrixHeight ) {
-    return false;
-  }
-  return ( leds(x,y).r == 0 && leds(x,y).g == 0 && leds(x,y).b == 0 );
-}
-
-bool move_snake_if_empty(int i, int dx, int dy) {
-  int n1 = snake[i].a11 + dx;
-  int n2 = snake[i].a12 + dy;
-  if( is_empty(n1, n2) ) {
-    snake[i].a11 = n1;
-    snake[i].a12 = n2;
-    return true;
-  } else {
-    return false;
-  }
-}
-
-void rotate_snake(int i) {
-  int t = snake[i].a22;
-  snake[i].a22 = snake[i].a21;
-  snake[i].a21 = t;
-  if( random(2) == 0 ) {
-    snake[i].a21 *= (-1);
-    snake[i].a22 *= (-1);
-  }
-}
-
-void print_snakes() {
-  for( int i = 0; i < ARRAY_SIZE(snake); i++ ) {
-    Serial.printf("%d: .a11=%2d  .a12=%2d  .a21=%2d  .a22=%2d\n", i, snake[i].a11, snake[i].a12, snake[i].a21, snake[i].a22); 
-  }
-  Serial.println();
-}
-
-void snakes() {
-  //print_snakes();
-  //fadeToBlackBy( leds, NUM_LEDS, 8);
-  fadeToBlackLog();
-  //fadeBlur();
-  EVERY_N_MILLISECONDS(100) {
-    for( int i; i < ARRAY_SIZE(snake); i++ ) {
-      bool has_moved = false;
-      int attempts = 0;
-      while( !has_moved && attempts < 8 ) {
-        has_moved = move_snake_if_empty(i, snake[i].a21, snake[i].a22);
-        if( !has_moved ) {
-          rotate_snake(i);
-        }
-        attempts++;
-      }
-      if( random(16) == 0 ) {
-        rotate_snake(i);
-      }
-      // chase color with uniform speed
-      // leds(snake[i.a11, snake[i].a12)] = CHSV(gHue[0]+(i*(255/ARRAY_SIZE(snake))), 255, 255);
-
-      // chase color with changing speed
-      double hue_d = (sin(millis()/8121.0)*gHue[0]) + (sin(millis()/7177.0)*i*(255/ARRAY_SIZE(snake)));
-      uint8_t hue = hue_d;
-      leds(snake[i].a11, snake[i].a12) = CHSV(hue, 255, 255);
-      
-      Serial.printf("%f ", hue_d);
-      Serial.printf("%d ", hue);
-    }
-    Serial.println();
-  }
-//  for( int i = 0; i < ARRAY_SIZE(snake); i++ ) {
-//    leds(snake[i.a11, snake[i].a12)] = CHSV(gHue[3]+(i*(255/ARRAY_SIZE(snake))), 255, 255);
-//  }
-}
 
 uint8_t maxlight( CRGB &led ) {
   return led.r > led.g 
@@ -264,23 +157,10 @@ uint8_t maxlight( CRGB &led ) {
               );
 }
 
-void fadeToBlackLog() {
-  for( int i = 0; i < NUM_LEDS; i++ ) {
-    double f = rgb2hsv_approximate(leds(i)).v/200.0;
-    uint16_t x = f*leds(i).r;
-    leds(i).r = leds(i).r == 0 ? 0 : x < leds(i).r ? x : leds(i).r-1;
-    x = f*leds(i).g;
-    leds(i).g = leds(i).g == 0 ? 0 : x < leds(i).g ? x : leds(i).g-1;
-    x = f*leds(i).b;
-    leds(i).b = leds(i).b == 0 ? 0 : x < leds(i).b ? x : leds(i).b-1;
-  }
-}
-
 void fadeBlur() {
   uint8_t blurAmount = beatsin8(2,10,255);
   blur2d( leds[0], kMatrixWidth, kMatrixHeight, blurAmount);
 }
-
 
 struct Matrix multiply(struct Matrix m1, struct Matrix m2) {
   Matrix r = {
@@ -1047,5 +927,3 @@ void Clear() {
 inline boolean between(long l, long x, long u) {
   return (unsigned)(x - l) <= (u - l);
 }
-
-
