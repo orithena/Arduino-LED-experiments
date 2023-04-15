@@ -2,6 +2,7 @@
 #include "FastLED.h"
 
 FASTLED_USING_NAMESPACE
+#include <LEDMatrix.h>
 
 #if defined(FASTLED_VERSION) && (FASTLED_VERSION < 3001000)
 #warning "Requires FastLED 3.1 or later; check github for latest code."
@@ -28,7 +29,10 @@ FASTLED_USING_NAMESPACE
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER GRB
 #define NUM_LEDS    196
-CRGB leds[NUM_LEDS];
+#define MATRIX_WIDTH 14
+#define MATRIX_HEIGHT 14
+//CRGB leds(NUM_LEDS);
+cLEDMatrix<MATRIX_WIDTH, MATRIX_HEIGHT, HORIZONTAL_MATRIX> leds;
 
 #define MIN_BRIGHTNESS         16
 #define MAX_BRIGHTNESS         255
@@ -89,11 +93,11 @@ void setup() {
   Serial.begin(230400);
 
   // tell FastLED about the LED strip configuration
-  FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
+  FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds[0], leds.Size()).setCorrection(TypicalLEDStrip);
   //FastLED.addLeds<LED_TYPE,DATA_PIN,CLK_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
 
   for( int i = 0; i < NUM_LEDS; i++ ) {
-    leds[i] = CRGB(map(i,0,NUM_LEDS,0,255), 0, 0);
+    leds(i) = CRGB(map(i,0,NUM_LEDS,0,255), 0, 0);
   }
   FastLED.show();
 
@@ -116,7 +120,8 @@ typedef void (*SimplePatternList[])();
 //SimplePatternList gPatterns = { juggle, confetti, rainbow, rainbowWithGlitter, bpm };
 //SimplePatternList gPatterns = { stuff, juggle, sinefield, rainbow, bpm };
 //SimplePatternList gPatterns = { stuff, sinematrix, sinematrix2, sinematrix3 };
-SimplePatternList gPatterns = { random_marquee, sinematrix, tetris_loop, gol_loop, sinefield, sinematrix2 /* sinematrix, random_marquee,*/  /*, sinematrix2, sinematrix3 */ };
+//SimplePatternList gPatterns = { random_marquee, sinematrix, tetris_loop, gol_loop, sinefield,  /*sinematrix2, sinematrix, random_marquee,*/  /*, sinematrix2, sinematrix3 */ };
+SimplePatternList gPatterns = { random_marquee, sinematrix, tetris_loop, gol_loop, sinefield, doublesnakes, perlinmatrix };
 
 int8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
@@ -347,7 +352,7 @@ void sinematrix2() {
     for( int y = 0; y < kMatrixHeight; y++ ) {
       Vector c = add(multiply( multiply(rotate, zoom), { .x1 = x, .x2 = y } ), translate);
       Vector c2 = add(multiply( multiply(zoom2, rotate2), { .x1 = x, .x2 = y } ), translate2);
-      leds[(y*kMatrixWidth) + x] = CHSV((basecol+sines(c.x1, c.x2))*255, 255, 31+(sines(c2.x1-10, c2.x2-10)*224));
+      leds(x,y) = CHSV((basecol+sines(c.x1, c.x2))*255, 255, 31+(sines(c2.x1-10, c2.x2-10)*224));
     }
   }
 }
@@ -391,7 +396,7 @@ void sinematrix3() {
     for( int y = 0; y < kMatrixHeight; y++ ) {
       Vector c = add(multiply( multiply(rotate, zoom), { .x1 = x-rcx, .x2 = y-rcy } ), translate);
       //Vector c2 = add(multiply( multiply(zoom2, rotate2), { .x1 = x, .x2 = y } ), translate2);
-      leds[(y*kMatrixWidth) + x] = CHSV((basecol+basefield(c.x1, c.x2))*255, 255, 255); //31+(sines(c2.x1-10, c2.x2-10)*224));
+      leds(x,y) = CHSV((basecol+basefield(c.x1, c.x2))*255, 255, 255); //31+(sines(c2.x1-10, c2.x2-10)*224));
     }
   }
 }
@@ -424,7 +429,7 @@ void sinematrix() {
   for( int x = 0; x < kMatrixWidth; x++ ) {
     for( int y = 0; y < kMatrixHeight; y++ ) {
       Vector c = add(multiply( multiply(zoom, rotate), { .x1 = x, .x2 = y } ), translate);
-      leds[(y*kMatrixWidth) + x] = CHSV((basecol+sines(c.x1-4, c.x2-4))*255, 255, 255);
+      leds(x,y) = CHSV((basecol+sines(c.x1-4, c.x2-4))*255, 255, 255);
     }
   }
 
@@ -471,7 +476,7 @@ void stuff() {
   if( vdy > PI/8 ) vdy = -PI/16;  if( vdy < -PI/16 ) vdy = PI/16;
   for( byte y = 0; y < kMatrixHeight; y++ ) {
     for( byte x = 0; x < kMatrixWidth; x++ ) {
-      leds[ (x*kMatrixWidth) + y ] = CHSV(
+      leds(x,y) = CHSV(
         calc(hpx,hpy,hdx,hdy,x,y) * 254,
         ((calc(spx,spy,sdx,sdy,x,y) * 0.5) + 0.5) * 254,
         ((calc(vpx,vpy,vdx,vdy,x,y) * 0.75) + 0.25) * 254
@@ -483,11 +488,11 @@ void stuff() {
 void sinefield() {
   float step = (millis() >> 6) & 0x003FFFFF; 
   byte hue = 0;
-  for( byte y = 0; y < kMatrixHeight; y++ ) {
-    hue = step + (37 * sin( ((y*step)/(kMatrixHeight*PI)) * 0.04 ) );
-    for( byte x = 0; x < kMatrixWidth; x++ ) {
-      hue += 17 * sin(x/(kMatrixWidth*PI));
-      leds[ (x*kMatrixHeight) + y ] = CHSV(hue + ((unsigned long)step & 0x000000FF), 192 - (63*cos((hue+step)*PI*0.004145)), 255*sin((hue+step)*PI*0.003891));
+  for( byte x = 0; x < kMatrixHeight; x++ ) {
+    hue = step + (37 * sin( ((x*step)/(kMatrixHeight*PI)) * 0.04 ) );
+    for( byte y = 0; y < kMatrixWidth; y++ ) {
+      hue += 17 * sin(y/(kMatrixWidth*PI));
+      leds(x,y) = CHSV(hue + ((unsigned long)step & 0x000000FF), 192 - (63*cos((hue+step)*PI*0.004145)), 255*sin((hue+step)*PI*0.003891));
     }
   }
 }
@@ -496,7 +501,7 @@ void sinefield() {
 void rainbow() 
 {
   // FastLED's built-in rainbow generator
-  fill_rainbow( leds, NUM_LEDS, gHue, 7);
+  fill_rainbow( leds[0], NUM_LEDS, gHue, 7);
 }
 
 void rainbowWithGlitter() 
@@ -509,24 +514,24 @@ void rainbowWithGlitter()
 void addGlitter( fract8 chanceOfGlitter) 
 {
   if( random8() < chanceOfGlitter) {
-    leds[ random16(NUM_LEDS) ] += CRGB::White;
+    leds( random16(NUM_LEDS) ) += CRGB::White;
   }
 }
 
 void confetti() 
 {
   // random colored speckles that blink in and fade smoothly
-  fadeToBlackBy( leds, NUM_LEDS, 2);
+  fadeToBlackBy( leds[0], NUM_LEDS, 2);
   int pos = random16(NUM_LEDS);
-  leds[pos] += CHSV( gHue + random8(64), 200, 255);
+  leds(pos) += CHSV( gHue + random8(64), 200, 255);
 }
 
 void sinelon()
 {
   // a colored dot sweeping back and forth, with fading trails
-  fadeToBlackBy( leds, NUM_LEDS, 64);
+  fadeToBlackBy( leds[0], NUM_LEDS, 64);
   int pos = beatsin16( 1, 0, NUM_LEDS-1 );
-  leds[pos] += CHSV( gHue, 255, 192);
+  leds(pos) += CHSV( gHue, 255, 192);
 }
 
 void bpm()
@@ -536,16 +541,16 @@ void bpm()
   CRGBPalette16 palette = PartyColors_p;
   uint8_t beat = beatsin8( BeatsPerMinute, 64, 255);
   for( int i = 0; i < NUM_LEDS; i++) { //9948
-    leds[i] = ColorFromPalette(palette, gHue+(i*2), beat-gHue+(i*10));
+    leds(i) = ColorFromPalette(palette, gHue+(i*2), beat-gHue+(i*10));
   }
 }
 
 void juggle() {
   // eight colored dots, weaving in and out of sync with each other
-  fadeToBlackBy( leds, NUM_LEDS, 5);
+  fadeToBlackBy( leds[0], NUM_LEDS, 5);
   byte dothue = 0;
   for( int i = 0; i < 8; i++) {
-    leds[beatsin16( i+7, 0, NUM_LEDS-1 )] |= CHSV(dothue, 200, 255);
+    leds(beatsin16( i+7, 0, NUM_LEDS-1 )) |= CHSV(dothue, 200, 255);
     dothue += 32;
   }
 }
@@ -746,7 +751,7 @@ void GameOfLifeFader(int cstep) {
       for( int y = 0; y < kMatrixHeight; y++ ) {
         byte from = valueof(gol_bufi^0x01, x, y);
         byte to = valueof(gol_bufi, x, y);
-        leds[ XYsafe(x,y) ] = CHSV(colorof(to == 0 ? gol_bufi^0x01 : gol_bufi, x, y), 255, (byte)(255 * (from + ((to-from) * (double)cstep) / (double)spd)) );
+        leds(x,y) = CHSV(colorof(to == 0 ? gol_bufi^0x01 : gol_bufi, x, y), 255, (byte)(255 * (from + ((to-from) * (double)cstep) / (double)spd)) );
       }
     }
   }
