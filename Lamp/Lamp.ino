@@ -6,14 +6,14 @@
 
 
 // How many leds in your strip?
-#define NUM_LEDS 16
+#define NUM_LEDS 80
 // Where is the LED data line connected?
 #define LED_DATA D4
 
 // Where are the buttons connected?
-#define BRIGHT_BTN D6
-#define SPEED_BTN D5
-#define MODE_BTN D7
+#define BRIGHT_BTN D1
+#define SPEED_BTN D3
+#define MODE_BTN D2
 
 // Minimum Speed number (actually, milliseconds are divided by 2^speed, so low speed numbers equal fast animation)
 #define MIN_SPEED 1
