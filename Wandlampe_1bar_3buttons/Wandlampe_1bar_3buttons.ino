@@ -11,15 +11,15 @@
 
 // How many leds in your strip?
 #define NUM_SPOTS 1
-#define NUM_LEDS_PER_SPOT 27
+#define NUM_LEDS_PER_SPOT 30
 #define NUM_LEDS (NUM_SPOTS * NUM_LEDS_PER_SPOT)
 // Where is the LED data line connected?
-#define LED_DATA 22
+#define LED_DATA D4
 
 // Where are the buttons connected?
-#define BRIGHT_BTN 18
-#define SPEED_BTN 19
-#define MODE_BTN 23
+#define BRIGHT_BTN D3
+#define SPEED_BTN D1
+#define MODE_BTN D2
 
 // Minimum Speed number (actually, milliseconds are divided by 2^speed, so low speed numbers equal fast animation)
 #define MIN_SPEED 1
@@ -236,8 +236,8 @@ void init_spots() {
 
 int spots(State* state, CRGB leds[]) {
   uint32_t ms = millis();
-  double phi1 = (ms / 512.0 / (state->spd + MIN_SPEED));
-  double phi2 = pnoise(0.5, phi1, phi1);
+  double phi1 = (ms / 1024.0 / (state->spd + MIN_SPEED));
+  double phi2 = pnoise(0.5, phi1 / 32.0, phi1 / 32.0);
   struct AMatrix m = compose(3, 
     rotation(phi1),
     translation(pnoise(ms / 8192.0, 0.5, 0.5), pnoise(ms / 8192.0, 0.75, 0.2)),
@@ -278,7 +278,7 @@ int static_rainbow(State* state, CRGB leds[]) {
 
 int animated_rainbow_spots(State* state, CRGB leds[]) {
   uint32_t ms = millis();
-  for( int s = 0; s <= NUM_SPOTS; s++ ) {
+  for( int s = 0; s < NUM_SPOTS; s++ ) {
     fill_rainbow(&leds[s*NUM_LEDS_PER_SPOT], NUM_LEDS_PER_SPOT, (ms >> (state->spd+MIN_SPEED)) & 0xFF, 255/NUM_LEDS_PER_SPOT);
   }
   return 1;

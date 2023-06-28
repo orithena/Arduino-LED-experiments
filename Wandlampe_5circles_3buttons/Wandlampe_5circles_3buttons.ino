@@ -278,7 +278,7 @@ int static_rainbow(State* state, CRGB leds[]) {
 
 int animated_rainbow_spots(State* state, CRGB leds[]) {
   uint32_t ms = millis();
-  for( int s = 0; s <= NUM_SPOTS; s++ ) {
+  for( int s = 0; s <  NUM_SPOTS; s++ ) {
     fill_rainbow(&leds[s*NUM_LEDS_PER_SPOT], NUM_LEDS_PER_SPOT, (ms >> (state->spd+MIN_SPEED)) & 0xFF, 255/NUM_LEDS_PER_SPOT);
   }
   return 1;
