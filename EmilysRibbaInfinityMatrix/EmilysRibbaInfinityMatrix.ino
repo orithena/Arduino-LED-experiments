@@ -2,6 +2,11 @@
 #include <FastLED.h>
 FASTLED_USING_NAMESPACE
 #include <LEDMatrix.h>
+#include <LittleFS.h>
+#include <WebServer.h>
+#include <ESPUI.h>
+#include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
+
 
 #if defined(FASTLED_VERSION) && (FASTLED_VERSION < 3001000)
 #warning "Requires FastLED 3.1 or later; check github for latest code."
@@ -34,6 +39,31 @@ const bool kMatrixSerpentineLayout = false;
 
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 
+inline float square(float x) {
+  return x*x;
+}
+
+inline int ui_to_val(int x) {
+  return square(x/100.0) * 255.0;
+}
+
+inline int val_to_ui(int x) {
+  return sqrt(x / 255.0) * 100;
+}
+
+
+typedef struct State {
+  int light;
+  uint8_t display_mode;
+  bool display_static;
+} State;
+
+State state = {
+  light: ui_to_val(50),
+  display_mode: 0,
+  display_static: false
+};
+
 void setup() {
   //delay(3000); // 3 second delay for recovery
   Serial.begin(230400);
@@ -43,11 +73,16 @@ void setup() {
   //FastLED.addLeds<LED_TYPE,DATA_PIN,CLK_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
 
   //FastLED.setMaxPowerInVoltsAndMilliamps(5, MAX_POWER_MW);
-  FastLED.setBrightness(96);
+  LittleFS.begin();
+  load_state();
+  FastLED.setBrightness(max(state.light, 25));
   tetris_setup();
   for( int i = 0; i < NUM_LEDS; i++) {
-    leds(i) = CRGB(0,0,0);
+    leds(i) = CHSV(_mod(i, NUM_LEDS) ,255,255);
   }
+  FastLED.show();
+  setup_wifi();  
+  setup_ui();
 }
 
 void printmatrix() {
@@ -79,9 +114,8 @@ typedef void (*SimplePatternList[])();
 //SimplePatternList gPatterns = { stuff, juggle, sinefield, rainbow, bpm };
 //SimplePatternList gPatterns = { snakes };
 //SimplePatternList gPatterns = { snakes, sinematrix4, sinefield, tetris_loop, sinematrix3, gol_loop, sinematrix };
-SimplePatternList gPatterns = { tetris_loop, perlinmatrix, tetris_loop, doublesnakes, sinematrix, gol_loop, snakes, sinematrix4, tetris_loop, sinefield, gol_loop, sinematrix3 };
+SimplePatternList gPatterns = { perlinmatrix, tetris_loop, doublesnakes, sinematrix, gol_loop, snakes, sinematrix4, tetris_loop, sinefield, gol_loop, sinematrix3 };
 
-int8_t gCurrentPatternNumber = 0;  // Index number of which pattern is current
 uint8_t gHue[] = { 0, 0, 0, 0 };   // rotating "base color" used by many of the patterns
 
 
@@ -97,6 +131,7 @@ typedef struct Matrix {
   double a22;
 } Matrix;
 
+
 #define DEMO_AFTER 360000
 uint32_t last_manual_mode_change = -DEMO_AFTER;
   
@@ -104,9 +139,10 @@ void loop()
 {
   EVERY_N_MILLISECONDS( 1000/FRAMES_PER_SECOND ) {
     // Call the current pattern function once, updating the 'leds' array
-    gPatterns[gCurrentPatternNumber]();
+    gPatterns[state.display_mode]();
       
     // send the 'leds' array out to the actual LED strip
+    FastLED.setBrightness(state.light);
     FastLED.show();
   }
   // do some periodic updates
@@ -123,7 +159,7 @@ void loop()
     gHue[3]++;
   } 
   EVERY_N_SECONDS( 240 ) { 
-    if( tetris_demo_mode && millis() - last_manual_mode_change > DEMO_AFTER ) {
+    if( state.display_static != true && tetris_demo_mode && millis() - last_manual_mode_change > DEMO_AFTER) {
       nextPattern();
     }
   } 
@@ -132,14 +168,14 @@ void loop()
 void nextPattern()
 {
   // add one to the current pattern number, and wrap around at the end
-  gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE(gPatterns);
+  state.display_mode = (state.display_mode + 1) % ARRAY_SIZE(gPatterns);
 }
 
 void lastPattern()
 {
   // add one to the current pattern number, and wrap around at the end
-  gCurrentPatternNumber--;
-  if( gCurrentPatternNumber < 0 ) gCurrentPatternNumber += ARRAY_SIZE(gPatterns);
+  state.display_mode--;
+  if( state.display_mode < 0 ) state.display_mode += ARRAY_SIZE(gPatterns);
 }
 
 
