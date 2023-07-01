@@ -1,3 +1,4 @@
+#define HOSTNAME "emily"
 
 
 void slider_callback(Control* sender, int type) {
@@ -37,10 +38,12 @@ void setup_ui() {
 
 void setup_wifi() {
   WiFiManager wm;
-  wm.setHostname("emily");
+  wm.setHostname(HOSTNAME);
   if( wm.autoConnect("Emilys Unendliche Matrix") ) {
     Serial.print("WiFi set up with IP: ");
     Serial.println(WiFi.localIP());
+    Serial.print("Published DNS name: ");
+    Serial.println(HOSTNAME);
   } else {
     Serial.println("Error connecting to WiFi");
   }

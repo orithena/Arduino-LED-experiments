@@ -67,6 +67,12 @@ State state = {
 void setup() {
   //delay(3000); // 3 second delay for recovery
   Serial.begin(230400);
+  delay(10);
+  Serial.printf("\n\n\n\n\n\n\n\n");
+  Serial.println("+-----------------------------------+");
+  Serial.println("| Dies ist Emilys Unendliche Matrix |");
+  Serial.println("|  Compiled  " __DATE__ "  " __TIME__ "  |");
+  Serial.println("+-----------------------------------+");
 
   // tell FastLED about the LED strip configuration
   FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds[0], leds.Size()).setCorrection(TypicalLEDStrip);
